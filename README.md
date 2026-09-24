@@ -56,3 +56,14 @@ godot --headless --path . --export-release "Linux" build/linux/Oblivion.x86_64
 ```
 
 O jogo vai embutido no executável (um arquivo só). `build/` fica fora do git.
+
+## Créditos
+
+### Enrique Candido
+
+Ideia original do jogo, parte da história e parte dos assets.
+
+UI/UX Designer e desenvolvedor front-end, cofundador da LED Softwares e estudante de bacharelado
+em Sistemas de Informação. Mineiros, Goiás.
+
+[GitHub](https://github.com/Enrique-qa) · [LinkedIn](https://www.linkedin.com/in/enrique-candido-02b278183/)
