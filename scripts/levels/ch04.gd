@@ -1,9 +1,9 @@
 extends LevelBase
 ## Capítulo 4 — Dois Caminhos (enigma 4 original).
 ## A segue pela trilha da esquerda (porta com "GET OUT OF HERE", bilhete em morse,
-## píer com a chave pigpen); B pela direita (carroça, corpo com a jaqueta de B e o
-## bilhete em pigpen, caixa com a tabela morse). O portão de ferro ao norte tem dois
-## cadeados: o de A pede ESQUECA e o de B pede NUNCA. Juntos: "NUNCA ESQUEÇA" (é B quem pede).
+## píer com a chave pigpen); B pela direita (carroça, corpo de bruços que B não vira, com o
+## bilhete em pigpen; caixa com a tabela morse). O portão de ferro ao norte tem dois
+## cadeados: o de A pede ESQUECA e o de B pede NUNCA. Juntos: "NUNCA ESQUEÇA".
 ## Terror: ao ler o morse, A ouve a voz falsa de B ("x:") e o Esquecido passa a patrulhar a
 ## trilha de A (esconderijos: barco virado no lago, barril no barraco, barril no portão);
 ## o corpo muda de posição depois que B lê o pigpen; luzes de erro nos dois cadeados;
@@ -228,8 +228,8 @@ func _build_left_horror() -> void:
 	zone(m, Vector3(4, 2, 3.4), func(ch: Character):
 		if ch.who == "a":
 			Audio.sfx_at("radio_static", radio, -8.0, 12.0))
-	memory(m, "m4", "A estrada",
-		"Três e cinquenta da manhã. %s trocou a música para eu não dormir e cantou alto, desafinando de propósito.\n\n\"Olha pra estrada. Olha pra estrada.\"" % Game.name_b)
+	memory(m, "m4", "A música",
+		"Três e cinquenta. %s cantava alto, desafinando de propósito.\n\nToda vez que eu ria, cantava mais alto.\n\nNão entendi por quê." % Game.name_b)
 
 
 func _barrel(pos: Vector3, k := 1.0) -> void:
@@ -546,8 +546,7 @@ func _examine_corpse(ch: Character, data: Dictionary) -> void:
 		return
 	await say([
 		"b: Tem alguém caído aqui. De bruços.",
-		"b: Essa jaqueta... verde-escura. Igual à minha.",
-		"b: O mesmo rasgo na manga. No mesmo lugar.",
+		"b: Não vou virar.",
 		"b: Tem um papel preso nos dedos.",
 	])
 	# Enquanto B lê, o corpo muda de posição.
@@ -558,9 +557,7 @@ func _examine_corpse(ch: Character, data: Dictionary) -> void:
 	Audio.sfx("breath", -10.0)
 	cam.shake(0.25)
 	await say([
-		"b: ...",
-		"b: Não estava assim. O corpo estava virado para o outro lado.",
-		"b: Eu só olhei para o papel. Um segundo.",
+		"b: ...não estava assim.",
 	])
 
 
@@ -612,9 +609,8 @@ func _start_patrol(after_voice: bool) -> void:
 	if after_voice:
 		lines.append("a: Não era %s." % Game.name_b)
 	lines.append_array([
-		"a: Tem alguém no fim da trilha. Alto. Com a mão no rosto.",
-		"a: Está andando para cá.",
-		"a: Se me enxergar, eu corro. Ou me escondo.",
+		"a: Tem alguém no fim da trilha.",
+		"a: Vindo para cá.",
 	])
 	await say(lines)
 	objective("Cheguem ao portão. Na trilha de %s: corra (Shift) ou esconda-se." % Game.name_a)
@@ -705,8 +701,8 @@ func _try_lock(ch: Character, side: String) -> void:
 	if side == "a":
 		_open_a = true
 		_lock_l.disable()
-		# "Esqueça" abre o cadeado; o hospital pergunta o que a cabeça quer esquecer.
-		bleed(["Toxicológico positivo. Benzodiazepínico e álcool.", "Quem estava dirigindo?"])
+		# "Esqueça" abre o cadeado; o hospital vaza (o resultado só chega no cap. 8).
+		bleed(["Colheram sangue dos dois?", "Colheram. O resultado sai amanhã."])
 	else:
 		_open_b = true
 		_lock_r.disable()
@@ -737,30 +733,21 @@ func _open_gate() -> void:
 	Game.unlock_input()
 	var lines := [
 		"O portão range e se abre. Em cima dele, alguém escreveu: NUNCA ESQUEÇA.",
-		"a: \"Esqueça\". Era o que dizia o meu bilhete.",
-		"b: E o meu, \"nunca\".",
-		"b: Não sei por quê, mas parece que fui eu que pedi isso.",
-		"a: Pediu para quem?",
-		"b: Para você.",
+		"b: O seu cadeado e o meu.",
+		"a: Parece um pedido.",
 	]
 	if _fake_heard:
 		lines.append_array([
-			"a: Lá no barraco você me chamou. Pediu para eu voltar. Para ficar.",
-			"b: Eu não chamei. Eu não abri a boca o caminho inteiro.",
-			"a: Era a sua voz, %s." % Game.name_b,
-			"b: Então não era eu.",
+			"a: Lá no barraco. Você me chamou?",
+			"b: Não.",
 		])
 	if _corpse_moved:
 		lines.append_array([
-			"b: Do meu lado tinha um corpo. Com a minha jaqueta. O mesmo rasgo na manga.",
-			"a: E o que isso quer dizer?",
-			"b: Não sei. Não quero saber.",
+			"b: Tinha um corpo do meu lado.",
+			"a: De quem?",
+			"b: Não virei para ver.",
 		])
-	lines.append_array([
-		"a: Eu ouvi uma voz perguntando quem estava dirigindo.",
-		"b: Dirigindo o quê?",
-		"a: ...Nada. Vem. Não quero me separar de você de novo.",
-	])
+	lines.append("a: Vem. A gente não se separa mais.")
 	await say(lines)
 	objective("Atravessem o portão juntos.")
 

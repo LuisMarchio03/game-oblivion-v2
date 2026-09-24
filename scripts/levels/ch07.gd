@@ -7,7 +7,7 @@ extends LevelBase
 ##   Cozinha (II):   a cozinha da mãe de B. Dardos no vermelho 17 + 6 + 19 → despensa 42.
 ##   Escritório (III): o piano do pai de B. Bilhete do travesseiro + carta → piano C G A F.
 ##   Banheiro (IV):  o espelho repete ACORDE → armário ACORDE. Do espelho sai a voz falsa
-##                   de B pedindo para A não acordar; depois, B de verdade nega.
+##                   de B pedindo para A dormir mais; depois, B de verdade nega numa linha.
 ## Cada chave fica com quem a pegou; cada cadeado só abre com a sua chave.
 ## Terror: com a primeira chave, todas as portas se abrem e o Esquecido passa a patrulhar
 ## o saguão e os quatro cômodos (um esconderijo em cada cômodo e um no saguão). Cada
@@ -118,8 +118,8 @@ func _build() -> void:
 	_build_pit()
 	_build_hiding()
 	_build_dread()
-	memory(TUB_MEMORY, "m7", "Saia",
-		"\"SAIA!\"\n\n%s me empurrou pela janela quebrada. Eu subi. Eu respirei.\n\nOlhei para baixo. Os faróis ainda estavam acesos lá no fundo.\n\n%s não subiu." % [Game.name_b, Game.name_b])
+	memory(TUB_MEMORY, "m7", "A água",
+		"Frio. Escuro. O cinto não abria.\n\nDuas mãos abriram por mim.\n\n\"SAIA!\"\n\nEu subi. Eu respirei.")
 
 
 ## Parede reta com vãos. `gaps` = [[posição ao longo, largura, altura do vão], ...].
@@ -987,8 +987,7 @@ func _scare(ch: Character) -> void:
 	if ch.who == "a":
 		fake.append("a: %s? De onde você está falando?" % Game.name_b)
 	else:
-		fake.append("b: ...essa é a minha voz. Eu não disse isso.")
-		fake.append("b: Eu nunca pediria isso a %s." % Game.name_a)
+		fake.append("b: ...essa é a minha voz.")
 	await say(fake)
 	_bath_light.visible = false
 	Audio.sfx("light_out", -8.0)
@@ -1005,8 +1004,7 @@ func _scare(ch: Character) -> void:
 	_bath_light.visible = true
 	Game.unlock_input()
 	await say([
-		ch.who + ": ...tinha alguém na porta. Com a mão no rosto.",
-		ch.who + ": Não. Não tem ninguém. Foco.",
+		ch.who + ": ...tinha alguém na porta.",
 	])
 	# A voz falsa falou com A: B desmente quando os dois se encontrarem.
 	_fake_pending = ch.who == "a"
@@ -1016,10 +1014,8 @@ func _scare(ch: Character) -> void:
 func _deny_fake() -> void:
 	_fake_pending = false
 	await say([
-		"a: %s. Você falou comigo pelo espelho do banheiro?" % Game.name_b,
-		"b: Espelho? Eu não falei nada. Nem passei perto do banheiro.",
-		"a: Era a sua voz. Pedindo para eu não acordar.",
-		"b: Então não era eu. Eu nunca te pediria isso. Nunca.",
+		"a: No banheiro, pelo espelho. Você me pediu para dormir mais um pouco.",
+		"b: Eu nunca te pediria isso.",
 	])
 
 
@@ -1217,8 +1213,7 @@ func _turn_both(ch: Character, side: String) -> void:
 		"b: Abriu. Tem uma escada descendo.",
 		"a: Está gelado lá embaixo. E tem uma luz vermelha no fundo.",
 		"?: ...SAIA!",
-		"a: Essa voz... é a sua, %s." % Game.name_b,
-		"b: Eu sei. Eu não lembro de ter gritado isso. Nunca.",
+		"a: ...",
 		"b: Vem. A gente desce lado a lado.",
 	])
 	objective("Desçam ao subterrâneo, lado a lado.")
@@ -1257,11 +1252,8 @@ func _wake_forgotten(_ch: Character) -> void:
 	await say([
 		"Todas as portas da casa se abrem ao mesmo tempo.",
 		"Diante da porta de ferro, alguém. Alto. Encharcado. A mão cobrindo o rosto.",
-		"b: Esse moletom... é igual ao seu, %s." % Game.name_a,
-		"a: Está andando. Está vindo para dentro da casa.",
-		"b: Esconde. Armário, cortina, debaixo da mesa. Qualquer lugar.",
-		"a: E se aquilo achar a gente?",
-		"b: Corre.",
+		"a: Está vindo para dentro da casa.",
+		"b: Esconde. Armário, cortina, debaixo da mesa.",
 	])
 	cam.target = party.active
 	# Ninguém é pego de graça: se alguém está perto da porta, aquilo recomeça longe.

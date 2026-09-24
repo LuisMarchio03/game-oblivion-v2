@@ -76,8 +76,10 @@ func _begin() -> void:            # corotina após o fade-in: falas, objective()
   e o Esquecido aparece atrás do jogador por 2 s (automático, via `Game.puzzle_failed`).
 - `bleed(["linha", ...])` / `bleed_zone(pos, size, linhas)`: voz do hospital vazando (legenda fria,
   bipe e chiado; não bloqueia). Frases curtas, clínicas, sem nome de personagem (use o número do leito).
-- `say()` aceita `"x: fala"`: a voz que imita B (aparece com o nome de B em tom errado). Sempre seguida,
-  em algum momento, do B verdadeiro negando ter falado.
+- `say()` aceita `"x: fala"`: a voz que imita B (aparece com o nome de B em tom errado). O B verdadeiro
+  nega em uma ou duas linhas, cada vez mais curto; não repita o mesmo diálogo de negação.
+- Não entregue a história: ninguém diz quem dirigia, de quem é um objeto ou o que sente. Siga a
+  tabela "Como a verdade é dosada" do DESIGN.
 - `memory(pos, "mN", titulo, corpo)`: lembrança escondida (brilho fraco, sem marcador). Só A toca.
   Esconda de verdade (atrás de objeto, canto escuro, fora do caminho), mas alcançável.
 - `Ui.jumpscare()`, `Ui.set_dread(v)`, `Ui.flash(cor)`, `cam.shake()`. SFX novos: radio_static,

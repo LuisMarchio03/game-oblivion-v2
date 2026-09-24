@@ -17,6 +17,11 @@ uma ameaça que caça o jogador e um final com escolha.
   alto da tela) contam, aos poucos, o que aconteceu fora do pesadelo.
 - **Cada lugar é um pedaço daquela noite.** O jogador entende a história montando os lugares,
   as vozes do hospital e as 8 lembranças escondidas — nunca por sermão.
+- **A culpa só aparece no fim.** Até o cap. 7 nada diz quem dirigia: as lembranças são
+  fragmentos que A ainda consegue encarar, os objetos não são identificados em voz alta e as
+  vozes do hospital só dão dados frios. O cap. 8 abre rachaduras (o exame de sangue, a
+  esfinge); o cap. 9 junta tudo. Os personagens não explicam o que sentem: falas curtas,
+  subtexto, perguntas sem resposta.
 - **HD-2D.** Cenários 3D low-poly com textura pixel, sprites billboard, neblina volumétrica,
   câmera fixa a ~40°. Paleta noturna azulada; fase final branca que vira hospital.
 
@@ -38,8 +43,18 @@ aniversário de B, a festa foi na casa da família de B (a casa dos capítulos 5
    `number_a`**, B no **leito `number_b`** (os números aleatórios que cada um "sente afinidade").
 7. O pesadelo é a cabeça de A tentando **esquecer** (oblivion) que a culpa foi de A.
 
-O **"SAIA!"** sussurrado pela casa não é ameaça: é B, naquela noite, salvando A. O jogador
-descobre isso só na lembrança 7 e no final.
+O **"SAIA!"** sussurrado pela casa não é ameaça: é B, naquela noite, salvando A. A lembrança 7
+mostra que alguém gritou; só no final B diz que foi B.
+
+### Como a verdade é dosada
+
+| Cap. | O jogador sabe | Ainda não sabe |
+|---|---|---|
+| 1–3 | Os dois acordaram molhados; há luzes no fundo do riacho; houve uma festa | Que houve acidente; que estão em coma |
+| 4–6 | Houve uma festa de aniversário de B; os dois estão num hospital | Quem dirigia; o que A tomou |
+| 7 | Alguém gritou "SAIA!" debaixo d'água; o leito de B piorou | De quem era a voz |
+| 8 | O sangue de A tinha remédio e álcool | Que A dirigia |
+| 9 | Houve briga pela chave; A dirigia; B salvou A; o Esquecido é A | — |
 
 ### O Esquecido
 
@@ -63,33 +78,34 @@ para não acordar, para desistir. Depois, B de verdade diz que não falou nada.
 
 ### As 8 lembranças (uma escondida por capítulo, 1 a 8)
 
-Só A pode tocar (são de A). Contam a noite em ordem. Com as 8, o final bom fica disponível.
-Texto exato (use `%s` = `Game.name_b`):
+Só A pode tocar (são de A). São fragmentos fora de ordem, o que A ainda consegue encarar:
+nenhuma diz quem dirigia. Com as 8, o final bom fica disponível. Texto exato (use `%s` =
+`Game.name_b`):
 
-| id | Cap. | Título | Texto |
-|---|---|---|---|
-| m1 | 1 | A festa | "A música estava alta demais. Alguém pôs um copo na minha mão.\n\n%s me puxou pelo braço: \"Vamos embora. Eu dirijo.\"\n\nEu ri. Eu disse que estava bem." |
-| m2 | 2 | A chave | "%s tentou tirar a chave do meu bolso. Eu empurrei.\n\n\"Eu sei dirigir. Eu sempre sei.\"\n\nNinguém ficou do meu lado. Nem eu." |
-| m3 | 3 | Os comprimidos | "A cabeça doía. Tomei dois do meu remédio, o de dormir, porque era o que tinha na bolsa.\n\nDepois o copo. Depois outro.\n\nA bula dizia: não dirija." |
-| m4 | 4 | A estrada | "Três e cinquenta da manhã. %s trocou a música para eu não dormir e cantou alto, desafinando de propósito.\n\n\"Olha pra estrada. Olha pra estrada.\"" |
-| m5 | 5 | A curva | "Eu fechei os olhos só por um segundo.\n\nSó um.\n\nQuando abri, a ponte vinha na nossa direção e %s gritava o meu nome." |
-| m6 | 6 | A água | "Frio. Escuro. A água entrando pelo painel.\n\nO cinto não abria. Eu puxava e ele não abria.\n\nAí duas mãos abriram por mim." |
-| m7 | 7 | Saia | "\"SAIA!\"\n\n%s me empurrou pela janela quebrada. Eu subi. Eu respirei.\n\nOlhei para baixo. Os faróis ainda estavam acesos lá no fundo.\n\n%s não subiu." |
-| m8 | 8 | Depois | "Na margem, gritei o nome de %s até a voz acabar.\n\nDepois eu decidi não lembrar.\n\nÉ mais fácil ter medo de um monstro do que de mim." |
+| id | Cap. | Título | Objeto | Texto |
+|---|---|---|---|---|
+| m1 | 1 | A festa | copo | "A música estava alta demais. Alguém pôs um copo na minha mão.\n\n%s riu de alguma coisa que eu disse.\n\nQueria lembrar o que era." |
+| m2 | 2 | As velas | vela de aniversário | "%s apagou as velas de olhos fechados.\n\nPerguntei o que tinha pedido.\n\n\"Se eu contar, não vale.\"" |
+| m3 | 3 | A bolsa | frasco de remédio | "A cabeça doía. Procurei alguma coisa na bolsa.\n\nAchei. Tomei dois.\n\nNem olhei o que era." |
+| m4 | 4 | A música | rádio, placa "PONTE 200 m" | "Três e cinquenta. %s cantava alto, desafinando de propósito.\n\nToda vez que eu ria, cantava mais alto.\n\nNão entendi por quê." |
+| m5 | 5 | A mão aberta | chave | "%s parou na minha frente com a mão aberta, esperando.\n\nNão disse nada. Eu também não.\n\nPassei direto." |
+| m6 | 6 | Um segundo | goteira | "Fechei os olhos só por um segundo.\n\nSó um.\n\nQuando abri, %s gritava o meu nome." |
+| m7 | 7 | A água | banheira | "Frio. Escuro. O cinto não abria.\n\nDuas mãos abriram por mim.\n\n\"SAIA!\"\n\nEu subi. Eu respirei." |
+| m8 | 8 | Depois | margem na cela | "Na margem, gritei até a voz acabar.\n\nAs duas luzes continuavam acesas lá no fundo.\n\nNinguém mais subiu." |
 
 ### Vozes do hospital (uma ou duas por capítulo, via `bleed`)
 
 | Cap. | Linhas |
 |---|---|
-| 1 | "...leito `number_a`, retirado do rio pelos bombeiros às quatro e quarenta." · "Hipotermia. Pupilas reagindo." |
-| 2 | "Escala de Glasgow: seis." · "A família do outro paciente está no corredor. Ainda não." |
-| 3 | "Horário do acidente, segundo a perícia: quatro e quinze." |
-| 4 | "Toxicológico positivo. Benzodiazepínico e álcool." · "Quem estava dirigindo?" |
-| 5 | "O paciente do `number_a` fala dormindo. Repete sempre a mesma palavra." · "Saia." |
+| 1 | "Pupilas reagindo." · "Mais um cobertor aqui, por favor." |
+| 2 | "Escala de Glasgow: seis." |
+| 3 | "Pressão estável. Pode diminuir a sedação." |
+| 4 | "Colheram sangue dos dois?" · "Colheram. O resultado sai amanhã." |
+| 5 | "O paciente do leito `number_a` fala dormindo. Sempre a mesma palavra." |
 | 6 | "Pode conversar. Dizem que eles escutam." · "Fala o nome. Fala do que tem medo." |
 | 7 | "Leito `number_b` teve uma parada às três. Conseguimos reverter." |
-| 8 | "Leito `number_b` entrando em falência. Chamem a família." |
-| 9 | O cenário inteiro vira o hospital. |
+| 8 | "Chegou o sangue do leito `number_a`." · "Positivo. Benzodiazepínico e álcool." · "Leito `number_b` entrando em falência. Chamem a família." |
+| 9 | Uma por pista (remédio, álcool, ninguém chamou táxi, briga pela chave + "Quem estava dirigindo?"). O cenário vira o hospital. |
 
 Nunca use nome de personagem nas vozes do hospital: só números de leito.
 
@@ -134,9 +150,9 @@ A e B acordam em margens opostas de um riacho; a ponte levadiça está erguida.
 - Enigma: pedra de B com três círculos (verde pequeno, vermelho médio, azul grande), "Do menor
   ao maior". Alavancas de A. **Resposta:** verde → vermelha → azul. Ordem errada reseta.
 - Terror: rio abaixo, perto da câmera, um **carro afundado** no riacho com os dois faróis piscando
-  debaixo d'água (bolhas). Quem chega perto comenta. Quando a ponte desce, a câmera mostra o
-  Esquecido parado entre as árvores do outro lado; um clarão e ele some. "b: Você viu? Tinha
-  alguém ali. Com a mão no rosto."
+  debaixo d'água (bolhas). Quem chega perto vê só "duas luzes" e não sabe o que é. Quando a
+  ponte desce, a câmera mostra o Esquecido parado entre as árvores do outro lado; um clarão e
+  ele some. "b: Tinha alguém ali. Entre as árvores."
 - Voz: linhas do cap. 1 ao baixar a ponte. Lembrança m1 escondida do lado de A.
 
 ### Cap. 2 — O Cemitério
@@ -144,8 +160,8 @@ B dentro do cemitério murado; A na porta da capela (cadeado de 6 rodas de letra
 - Lápides I–VI (acróstico): I "Luz nenhuma alcança este chão" · II "Esquecemos o caminho de
   volta" · III "Mas a memória não morreu" · IV "Busque o nome que se perdeu" · V "Rastros de quem
   já partiu" · VI "Ecoam pelo vale vazio". **Resposta:** `LEMBRE`.
-- Terror: uma **sétima cova**, de terra fresca, com uma cruz de madeira e o nome de B escrito a
-  giz, sem data. Depois que B lê duas lápides, o Esquecido **patrulha** entre as covas (lento,
+- Terror: uma **sétima cova**, de terra fresca, onde B acorda: cruz de madeira sem nome e uma
+  vela de aniversário apagada fincada na terra. Depois que B lê duas lápides, o Esquecido **patrulha** entre as covas (lento,
   visão curta); dois esconderijos (mausoléu aberto, atrás do anjo). Luzes de erro no cadeado.
 - Voz: cap. 2. Lembrança m2 do lado de A.
 
@@ -154,7 +170,7 @@ B dentro do cemitério murado; A na porta da capela (cadeado de 6 rodas de letra
   grade. **Quem fica na placa é caçado** (`lonely_watch`, ~30 s); alcançou: a vítima sai da placa.
 - Confessionário: relógio de bolso parado em **3:15** e o bilhete "Meu relógio sempre atrasou uma
   hora. Foi a hora em que eu parti." B reconhece o relógio: era do avô de B. A voz falsa de B sai
-  do confessionário pedindo para não acertar o relógio.
+  do confessionário pedindo para não acertar o relógio. A hora 4:15 só ganha sentido no final.
 - Console do altar. **Resposta:** `4:15`. O espelho mostra a mão de sangue e os números; por um
   instante, há **três** figuras no reflexo. Voz: cap. 3. Lembrança m3.
 
@@ -162,9 +178,10 @@ B dentro do cemitério murado; A na porta da capela (cadeado de 6 rodas de letra
 A pela esquerda, B pela direita; os lados se reencontram no portão de ferro com **dois cadeados**.
 - Esquerda (A): porta com "GET OUT OF HERE" talhado, bilhete em **morse**
   `. ... --.- ..- . -.-. .-`; a caixa do píer guarda a **chave pigpen**.
-- Direita (B): carroça e **corpo com a jaqueta de B** (mesmo rasgo na manga), bilhete em
-  **pigpen** (NUNCA); a caixa guarda a **tabela morse**. Depois de ler, o corpo mudou de posição.
-- Cadeado de A: `ESQUECA`. Cadeado de B: `NUNCA`. Juntos: "NUNCA ESQUEÇA" (é B quem pede).
+- Direita (B): carroça e **corpo de bruços** (a jaqueta é verde-escura, mas ninguém comenta; B
+  se recusa a virar), bilhete em **pigpen** (NUNCA); a caixa guarda a **tabela morse**. Depois de
+  ler, o corpo mudou de posição.
+- Cadeado de A: `ESQUECA`. Cadeado de B: `NUNCA`. Juntos: "NUNCA ESQUEÇA".
 - Terror: o Esquecido **patrulha** a trilha de A (esconderijos: barco virado, barril). Voz falsa
   de B quando A lê o morse. Voz: cap. 4. Lembrança m4.
 
@@ -189,8 +206,8 @@ Contagem: número da linha = número da letra, contando **só letras**. Quadro d
 - Canção (lado B): 1 "Dorme criança que a lua já vem" 2 "Fecha os olhos e não conte a ninguém"
   3 "O que se esconde debaixo da cama" 4 "Espera acordado e chama por quem ama".
 - Placa de A `1=4 2=21 3=14 4=22` → porta de **A** pede `MEDO`.
-- Terror: passos e arranhões do outro lado da parede de tábuas; desenhos infantis de dois bonecos
-  num carro debaixo d'água; a voz falsa de B pela parede; num apagão, o Esquecido aparece parado
+- Terror: passos e arranhões do outro lado da parede de tábuas; desenhos infantis de duas crianças
+  de mãos dadas (no lado de B, um foi coberto de azul e só sobrou uma mão); a voz falsa de B pela parede; num apagão, o Esquecido aparece parado
   num canto e some quando a luz volta. Voz: cap. 6. Lembrança m6.
 
 ### Cap. 7 — O Saguão (a casa da família de B)
@@ -209,7 +226,7 @@ cadeados (I–IV) e duas rodas que precisam girar **juntas**.
 
 ### Cap. 8 — Ascendência
 Masmorra: dois corredores paralelos, duas placas que precisam de peso ao mesmo tempo. A esfinge
-acorrentada fala do que A fez ("Você trouxe `name_b` até aqui. Como trouxe até a ponte.").
+acorrentada encara A ("Você trouxe `name_b` até aqui. Não foi a primeira vez.").
 "O que é, o que é: quanto mais se tem, menos se vê?" → `ESCURIDAO` (aceita ESCURO, TREVAS, BREU).
 Errar: ameaças da esfinge e luzes de erro nas tochas. Acertou: tudo fica branco e B some
 (voz do cap. 8 com a linha reta do monitor). **Fase branca:** só A; três lembranças de B (luzes);
@@ -228,8 +245,9 @@ corredores e some. Caça ao tesouro com as 4 pistas originais:
 4. A cama onde A acordou. AQUELE QUE TE SEPARA: *seu orgulho te cega*.
 - **Laboratório:** o terminal pede as 4 frases (respostas inalteradas). Ao completar, as luzes
   apagam. O Esquecido entra, anda até A e **abaixa a mão: o rosto é o de A**. "?: Você não
-  precisa lembrar. Lá fora, `name_b` está morrendo por sua causa. Aqui, não." Então B aparece:
-  "b: Eu gritei para você sair daquele carro. Agora eu grito de novo."
+  precisa lembrar. Lá fora, `name_b` está morrendo por sua causa. Aqui, não." Então B aparece e
+  junta as lembranças: pediu a chave, cantou para A não dormir, gritou para A sair do carro.
+  "b: Agora eu grito de novo."
 - **Escolha:** "Lembrar" ou "Esquecer".
 
 ## Finais

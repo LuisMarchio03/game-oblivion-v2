@@ -3,8 +3,8 @@ extends LevelBase
 ## O sótão da casa da família de B, dividido ao meio por uma parede de tábuas. A tem a carta
 ## e o código da canção; B tem a canção e o código da carta. Linha = número da linha;
 ## número = posição da letra (só letras). Porta de A: MEDO. Porta de B: NOME.
-## Terror: passos e arranhões do outro lado da parede; desenhos infantis de dois bonecos num
-## carro debaixo d'água (do lado de B, um deles sobe e o outro fica); a voz falsa de B pela
+## Terror: passos e arranhões do outro lado da parede; desenhos infantis de duas crianças de
+## mãos dadas (do lado de B, um deles foi coberto de azul e só sobrou uma); a voz falsa de B pela
 ## parede depois que A lê a carta (B nega quando o jogador volta para B); na primeira porta
 ## aberta, um apagão com o Esquecido parado num canto, que some quando a luz volta; luzes de
 ## erro nas duas fechaduras; vozes do hospital; lembrança m6 atrás do armário coberto (lado A).
@@ -214,8 +214,8 @@ func _build_horror() -> void:
 			Audio.sfx_at("drip", _scratch, -30.0, 1.0)
 			Audio.sfx("drip", -12.0)
 		, false)
-	memory(MEMORY_POS, "m6", "A água",
-		"Frio. Escuro. A água entrando pelo painel.\n\nO cinto não abria. Eu puxava e ele não abria.\n\nAí duas mãos abriram por mim.")
+	memory(MEMORY_POS, "m6", "Um segundo",
+		"Fechei os olhos só por um segundo.\n\nSó um.\n\nQuando abri, %s gritava o meu nome." % Game.name_b)
 
 
 func _light_of(n: Node) -> Light3D:
@@ -232,11 +232,11 @@ func _focus_dread(side: String) -> void:
 	dread_focus(side)
 
 
-## Desenho de giz de cera: um carro debaixo d'água com dois bonecos. Em `escaped`, um deles
-## sobe para fora do carro e o outro fica dentro, com a mão no vidro.
-func _drawing(pos: Vector3, escaped: bool, tilt: float) -> void:
+## Desenho de giz de cera: duas crianças de mãos dadas debaixo do sol. Em `covered`, alguém
+## pintou a folha de azul por cima, com força; de uma das crianças só sobrou a mão.
+func _drawing(pos: Vector3, covered: bool, tilt: float) -> void:
 	var s := Sprite3D.new()
-	s.texture = _drawing_tex(escaped)
+	s.texture = _drawing_tex(covered)
 	s.pixel_size = 0.017
 	s.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	s.shaded = true
@@ -247,46 +247,36 @@ func _drawing(pos: Vector3, escaped: bool, tilt: float) -> void:
 	Build.sphere(geo, 0.022, pos + Vector3(0, 0.27, 0.02), Build.color_mat(Color("b3283f"), 0.2))
 
 
-func _drawing_tex(escaped: bool) -> ImageTexture:
+func _drawing_tex(covered: bool) -> ImageTexture:
 	var w := 48
 	var h := 36
-	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
-	img.fill(Color("e9e2cf"))
-	# Água: giz azul riscado com força, da superfície até o fundo.
-	for y in range(8, h - 2):
-		for x in range(2, w - 2):
-			if (x * 3 + y * 5) % 7 < 4 or y % 4 == 0:
-				img.set_pixel(x, y, Color("2d5fb8") if (x * 7 + y * 3) % 11 < 7 else Color("4f86d9"))
-	for x in range(1, w - 1):
-		_px(img, x, 7 + int(round(sin(x * 0.7))), Color("1b3f86"))
-	# Carro vermelho no fundo.
-	var red := Color("b3283f")
-	_rect(img, 11, 24, 36, 30, red)
-	_rect(img, 16, 19, 31, 24, red)
-	_rect(img, 18, 20, 22, 23, Color("e9e2cf"))
-	_rect(img, 25, 20, 29, 23, Color("e9e2cf"))
-	_circle(img, 16, 31, 2, Color("1a1a1a"))
-	_circle(img, 31, 31, 2, Color("1a1a1a"))
+	var paper := Color("e9e2cf")
 	var ink := Color("1a1a1a")
-	# Boneco 1: dentro, na janela da esquerda.
-	_circle(img, 20, 21, 1, ink)
-	_px(img, 20, 23, ink)
-	if escaped:
-		# Boneco 2 fora do carro, subindo; na janela da direita, só uma mão no vidro.
-		_circle(img, 34, 11, 1, ink)
-		_line(img, 34, 13, 34, 17, ink)
-		_line(img, 34, 14, 31, 11, ink)
-		_line(img, 34, 14, 37, 11, ink)
-		_line(img, 34, 17, 32, 20, ink)
-		_line(img, 34, 17, 36, 20, ink)
-		_rect(img, 21, 21, 22, 22, ink)
-		for b in [[38, 8], [36, 5], [39, 3]]:
-			_circle(img, b[0], b[1], 1, Color("e9e2cf"))
-	else:
-		_circle(img, 27, 21, 1, ink)
-		_px(img, 27, 23, ink)
-		for b in [[24, 15], [26, 11], [23, 9]]:
-			_circle(img, b[0], b[1], 1, Color("e9e2cf"))
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	img.fill(paper)
+	# Chão verde e sol no canto.
+	for x in range(1, w - 1):
+		for y in range(29 + int(round(sin(x * 0.5))), h - 1):
+			if (x + y) % 3 != 0:
+				_px(img, x, y, Color("3f8f3a"))
+	_circle(img, 40, 6, 3, Color("e8b830"))
+	# Duas crianças de mãos dadas.
+	for c in [[17, 0], [29, 1]]:
+		var x: int = c[0]
+		_circle(img, x, 14, 2, ink)
+		_line(img, x, 17, x, 23, ink)
+		_line(img, x, 23, x - 2, 28, ink)
+		_line(img, x, 23, x + 2, 28, ink)
+		_line(img, x, 18, x + (3 if c[1] == 0 else -3), 21, ink)
+	_line(img, 20, 21, 26, 21, ink)
+	if covered:
+		# Giz azul riscado por cima, com força, apagando a criança da direita.
+		for y in range(2, h - 2):
+			for x in range(23, w - 2):
+				if (x * 3 + y * 5) % 7 < 5 or y % 3 == 0:
+					img.set_pixel(x, y, Color("2d5fb8") if (x * 7 + y * 3) % 11 < 7 else Color("4f86d9"))
+		_line(img, 20, 21, 25, 21, ink)
+		_rect(img, 24, 20, 25, 22, ink)
 	return ImageTexture.create_from_image(img)
 
 
@@ -320,15 +310,13 @@ func _look_drawings(ch: Character) -> void:
 	if ch.who == "a":
 		await say([
 			"a: Desenhos de criança. Giz de cera.",
-			"a: Um carro. Dois bonecos de palito lá dentro.",
-			"a: E tudo em volta pintado de azul. Com força, até rasgar o papel.",
-			"a: ...Estão debaixo d'água.",
+			"a: Sempre as mesmas duas. De mãos dadas.",
 		])
 	else:
 		await say([
-			"b: Desenhos de criança. O mesmo carro, todo pintado de azul.",
-			"b: Neste, um dos bonecos está fora do carro. Subindo.",
-			"b: O outro ficou lá dentro. Com a mão no vidro.",
+			"b: Eu desenhava isso. Nós dois.",
+			"b: Mas neste alguém pintou por cima. De azul, até rasgar o papel.",
+			"b: Só sobrou uma mão.",
 		])
 
 
@@ -400,7 +388,7 @@ func _fake_voice() -> void:
 		"x: %s. Encosta aqui. Na parede." % Game.name_a,
 		"x: Eu estou bem do outro lado. Consegue me ouvir respirar?",
 		"x: Não abre a porta. Lá embaixo dói. Fica aqui comigo.",
-		"a: %s...? Por que você está falando assim?" % Game.name_b,
+		"a: %s...?" % Game.name_b,
 	])
 	Audio.sfx("breath", -8.0)
 	await get_tree().create_timer(1.5, false).timeout
@@ -426,9 +414,8 @@ func _on_switched(who: String) -> void:
 
 func _denial() -> Array:
 	return [
-		"b: %s? Eu ouvi você falar o meu nome." % Game.name_a,
-		"b: Mas eu não disse nada. Nada.",
-		"b: Se tem alguma coisa aí imitando a minha voz... não escuta.",
+		"b: Ouvi você me chamar pela parede.",
+		"b: Não fui eu que respondi.",
 	]
 
 
@@ -457,13 +444,7 @@ func _try_door(ch: Character, who: String) -> void:
 			]
 			if _fake_done and not _denied:
 				_denied = true
-				lines.append("a: Antes, pela parede... era você falando comigo?")
 				lines.append_array(_denial())
-			if _drawings_seen > 0:
-				lines.append_array([
-					"a: Aqueles desenhos. O carro debaixo d'água.",
-					"b: Não pensa nisso agora. Desce.",
-				])
 			await say(lines)
 			objective("Desçam pelas duas escadas ao mesmo tempo.")
 		else:

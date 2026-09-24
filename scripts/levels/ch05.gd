@@ -412,27 +412,16 @@ func _build_party() -> void:
 	interact(Vector3(-1.75, 0, -1.0), "Examinar os copos", _examine_cups, "any", 1.1, true, 1.0)
 
 
-## Lembrança m5: um carrinho de brinquedo capotado atrás do arbusto, no canto escuro a oeste.
+## Lembrança m5: uma chave caída atrás do arbusto, no canto escuro a oeste.
 func _build_memory() -> void:
 	var m := MEMORY_POS
-	var red := Build.color_mat(Color("8a1f24"), 0.0, 0.55)
-	var dark := Build.color_mat(Color("111214"), 0.0, 0.6)
-	var car := Node3D.new()
-	car.position = m + Vector3(0.35, 0, -0.35)
-	car.rotation_degrees.y = 28.0
-	geo.add_child(car)
-	Build.box(car, Vector3(0.22, 0.08, 0.16), Vector3(0, 0.04, 0), red, false)      # cabine, no chão
-	Build.box(car, Vector3(0.42, 0.1, 0.2), Vector3(0, 0.13, 0), red, false)        # carroceria, de ponta-cabeça
-	for wx in [-0.14, 0.14]:
-		for wz in [-0.11, 0.11]:
-			var wheel := Build.cylinder(car, 0.045, 0.03, Vector3(wx, 0.2, wz), dark, false, 8)
-			wheel.rotation_degrees.x = 90.0
+	Build.flat_sprite(geo, "icon_key", m + Vector3(0.35, 0.03, -0.35), Vector3(-90, 28, 0), 0.018, Color(0.8, 0.8, 0.75))
 	var cup := Build.cylinder(geo, 0.055, 0.13, m + Vector3(-0.4, 0.055, -0.1), Build.color_mat(Color("a8262c"), 0.0, 0.5), false, 8)
 	cup.rotation_degrees = Vector3(90, 40, 0)
 	Build.billboard(geo, "bush", m + Vector3(0.2, 0, 0.85), 0.06, 1, 0, Color(0.6, 0.72, 0.78))
 	Build.billboard(geo, "fern", m + Vector3(-0.7, 0, 0.5), 0.05, 1, 0, Color(0.6, 0.72, 0.78))
-	memory(m, "m5", "A curva",
-		"Eu fechei os olhos só por um segundo.\n\nSó um.\n\nQuando abri, a ponte vinha na nossa direção e %s gritava o meu nome." % Game.name_b)
+	memory(m, "m5", "A mão aberta",
+		"%s parou na minha frente com a mão aberta, esperando.\n\nNão disse nada. Eu também não.\n\nPassei direto." % Game.name_b)
 
 
 func _light_of(n: Node) -> Light3D:
@@ -578,7 +567,7 @@ func _saia() -> void:
 		"Porta de %s (lilás): B19CD9. Porta de %s (ciano): 00FFFF." % [Game.name_a, Game.name_b],
 	])
 	# O hospital vaza: a mesma palavra, do outro lado.
-	bleed(["O paciente do leito %d fala dormindo. Repete sempre a mesma palavra." % Game.number_a, "Saia."])
+	bleed(["O paciente do leito %d fala dormindo. Sempre a mesma palavra." % Game.number_a])
 	await get_tree().create_timer(2.5, false).timeout
 	await _show_watcher()
 

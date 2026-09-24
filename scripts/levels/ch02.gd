@@ -1,22 +1,22 @@
 extends LevelBase
 ## Capítulo 2 — O Cemitério.
 ## B acorda dentro do cemitério murado, em cima de uma sétima cova, de terra fresca, com
-## uma cruz de madeira e o nome de B escrito a giz, sem data. A está na porta da capela.
+## uma cruz sem nome e uma vela de aniversário fincada na terra. A está na porta da capela.
 ## Seis lápides (I–VI), espalhadas fora de ordem, formam o acróstico LEMBRE.
 ## A abre o cadeado de seis rodas; o portão do cemitério destrava junto e os
 ## dois entram na capela.
 ## Terror: depois que B lê duas lápides, o Esquecido sai da cova aberta e patrulha entre as
 ## covas (lento, visão curta). Esconderijos: o mausoléu aberto e atrás do anjo que chora.
-## Errar o cadeado apaga as luzes da porta. Vozes do hospital: ao começar a patrulha e
-## quando B lê o próprio nome. Lembrança m2 ("A chave"): canto escuro entre a capela e a
-## mata, atrás da árvore a oeste da fachada.
+## Errar o cadeado apaga as luzes da porta. Voz do hospital ao começar a patrulha.
+## Lembrança m2 ("As velas"): canto escuro entre a capela e a mata, atrás da árvore a oeste
+## da fachada.
 
 const ANSWER := "LEMBRE"
 const DOOR_POS := Vector3(-7, 0, -9)
 const GATE_X := 1.0
 const GATE_Z := -3.0
 const CEM := Rect2(1.0, -11.8, 12.8, 17.6)  # cemitério murado (x, z, largura, fundo)
-const GRAVE7 := Vector3(8.8, 0, 0.9)          # a sétima cova (terra fresca, nome de B)
+const GRAVE7 := Vector3(8.8, 0, 0.9)          # a sétima cova (terra fresca, sem nome)
 const ANGEL := Vector3(6.8, 0, -3.9)          # anjo que chora (esconderijo atrás dele)
 const MAUSO := Vector3(6.2, 0, -10.6)
 const RISE := Vector3(7.9, 0, -6.9)           # onde ele sai da cova aberta
@@ -48,9 +48,7 @@ var _spikes: Array[Transform3D] = []
 var _crows: Array[Node3D] = []
 var _b_read := {}
 var _patrol_on := false
-var _grave_seen := false
-var _name_erased := false
-var _grave_name: Label3D
+var _grave_seen := {}
 
 
 func _init() -> void:
@@ -566,7 +564,7 @@ func _build_nature() -> void:
 # --- Terror: a sétima cova, o anjo, o mausoléu aberto e a lembrança ------------------------
 
 func _build_terror() -> void:
-	# A sétima cova: terra fresca, cruz de madeira e o nome de B a giz. Sem data.
+	# A sétima cova: terra fresca, cruz de madeira sem nome e uma vela de aniversário apagada.
 	var fresh := Build.mat("dirt", Color(0.62, 0.5, 0.4), 1.0)
 	Build.box(geo, Vector3(1.0, 0.26, 1.9), GRAVE7 + Vector3(0, 0.1, 0.1), fresh, false)
 	for k in 5:
@@ -579,7 +577,8 @@ func _build_terror() -> void:
 	var wood := Build.mat("planks_dark", Color(0.85, 0.75, 0.62), 1.0)
 	Build.box(cross, Vector3(0.1, 1.25, 0.08), Vector3(0, 0.62, 0), wood, false)
 	Build.box(cross, Vector3(0.66, 0.1, 0.08), Vector3(0, 0.92, 0), wood, false)
-	_grave_name = Build.text3d(cross, Game.name_b.to_upper(), Vector3(0, 0.92, 0.045), 0.0, 30, Color("e9e6dc"), UiTheme.FONT_HAND, 0.0045)
+	Build.cylinder(geo, 0.014, 0.11, GRAVE7 + Vector3(0.12, 0.28, -0.55), Build.color_mat(Color("d8a0b8"), 0.05), false, 6)
+	Build.cylinder(geo, 0.004, 0.03, GRAVE7 + Vector3(0.12, 0.35, -0.55), Build.color_mat(Color("15120f")), false, 4)
 	Build.blocker(geo, Vector3(0.3, 1.3, 0.3), cross.position + Vector3(0, 0.65, 0))
 	interact(GRAVE7 + Vector3(0, 0.4, -0.5), "Examinar a cruz", _examine_grave, "any", 1.3, true, 1.6)
 
@@ -603,11 +602,13 @@ func _build_terror() -> void:
 	slab.rotation_degrees.z = -6
 	hide_spot(MAUSO + Vector3(0, 0, 1.25), "Esconder-se no mausoléu")
 
-	# Lembrança m2: canto escuro entre a capela e a mata, atrás da árvore.
-	Build.flat_sprite(geo, "icon_key", MEMORY + Vector3(0.25, 0.03, 0.2), Vector3(-90, 35, 0), 0.018, Color(0.8, 0.8, 0.75))
+	# Lembrança m2 (as velas): canto escuro entre a capela e a mata, atrás da árvore.
+	# Um toco de vela de aniversário, listrado, fincado na terra.
+	Build.cylinder(geo, 0.012, 0.09, MEMORY + Vector3(0.25, 0.045, 0.2), Build.color_mat(Color("d8a0b8"), 0.05), false, 6)
+	Build.cylinder(geo, 0.013, 0.012, MEMORY + Vector3(0.25, 0.06, 0.2), Build.color_mat(Color("f2efe6"), 0.05), false, 6)
 	Build.billboard(geo, "fern", MEMORY + Vector3(-0.4, 0, 0.5), 0.035, 1, 0, Color(0.7, 0.75, 0.85))
-	memory(MEMORY, "m2", "A chave",
-		"%s tentou tirar a chave do meu bolso. Eu empurrei.\n\n\"Eu sei dirigir. Eu sempre sei.\"\n\nNinguém ficou do meu lado. Nem eu." % Game.name_b)
+	memory(MEMORY, "m2", "As velas",
+		"%s apagou as velas de olhos fechados.\n\nPerguntei o que tinha pedido.\n\n\"Se eu contar, não vale.\"" % Game.name_b)
 
 
 func _light_of(n: Node) -> Light3D:
@@ -618,44 +619,20 @@ func _light_of(n: Node) -> Light3D:
 
 
 func _examine_grave(ch: Character) -> void:
+	if _grave_seen.has(ch.who):
+		await say([ch.who + ": Nenhum nome. Só a vela."])
+		return
+	_grave_seen[ch.who] = true
 	if ch.who == "a":
-		if _name_erased:
-			await say(["a: Não tem nome nenhum aí. Não tem."])
-			return
-		_name_erased = true
-		var first := not _grave_seen
-		_grave_seen = true
 		await say([
-			"a: Uma cova nova. A terra ainda está solta.",
-			"a: A cruz tem o nome de %s. Escrito a giz." % Game.name_b,
-			"a: Não. Não, não, não.",
-			"%s esfrega a manga do moletom na madeira até o nome sumir." % Game.name_a,
-		])
-		create_tween().tween_property(_grave_name, "modulate:a", 0.0, 1.2)
-		if first:
-			bleed(["A família do outro paciente está no corredor. Ainda não."])
-		await say(["a: Pronto. Não tem nome nenhum aqui."])
-		return
-	if _name_erased:
-		await say([
-			"b: Tinha um nome escrito nessa cruz.",
-			"b: Alguém apagou. Ficou só o pó de giz na madeira.",
+			"a: Uma cova sem nome.",
+			"a: E uma vela de aniversário fincada na terra. Apagada.",
 		])
 		return
-	if _grave_seen:
-		await say(["b: Não quero ler de novo."])
-		return
-	_grave_seen = true
 	await say([
-		"b: Uma cova nova. Foi aqui que eu acordei.",
-		"b: A cruz tem um nome escrito a giz.",
-		"b: ...é o meu nome.",
-		"b: Sem data. Só o nome. Como se ainda faltasse alguma coisa.",
-	])
-	bleed(["A família do outro paciente está no corredor. Ainda não."])
-	await say([
-		"a: %s? Você parou de falar. O que foi?" % Game.name_b,
-		"b: Nada. Depois eu te conto.",
+		"b: Foi aqui que eu acordei.",
+		"b: A cruz não tem nome. Alguém deixou uma vela na terra.",
+		"b: Dessas de bolo.",
 	])
 
 
@@ -698,12 +675,9 @@ func _start_patrol() -> void:
 	bleed(["Escala de Glasgow: seis."])
 	await say([
 		"b: %s... tem alguém no meio das covas." % Game.name_a,
-		"a: Quem? Quem está aí?",
-		"b: Alto. A roupa pingando. A mão cobrindo o rosto.",
-		"a: O mesmo da clareira. Veio atrás da gente.",
-		"b: Está andando entre as lápides. Devagar. Como se procurasse alguém.",
-		"a: Não deixa ele te ver. O mausoléu está aberto. E tem aquele anjo de pedra.",
-		"b: Se ele vier, eu corro.",
+		"a: Quem?",
+		"b: Não dá para ver o rosto. Está andando entre as lápides. Devagar.",
+		"a: Não deixa ele te ver. Tem um mausoléu aberto aí dentro. E um anjo de pedra.",
 	])
 	set_checkpoint(SAFE_A, SAFE_B)
 	if _solved:

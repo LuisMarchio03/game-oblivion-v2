@@ -3,9 +3,9 @@ extends LevelBase
 ## Parte 1 (masmorra): A e B descem por corredores paralelos, entre celas. As duas
 ## placas diante das grades precisam de peso ao mesmo tempo; quem fica muito tempo
 ## numa placa, com o outro longe, é caçado (lonely_watch). Uma cela aberta no corredor
-## de A guarda a lembrança m8. No salão, a esfinge acorrentada fala do que A fez ("Você
-## trouxe B até aqui. Como trouxe até a ponte.") e pergunta: "quanto mais se tem, menos
-## se vê?" → ESCURIDÃO. Cada erro apaga uma tocha do salão.
+## de A guarda a lembrança m8. No salão, a esfinge acorrentada encara A ("Você trouxe B
+## até aqui. Não foi a primeira vez.") e pergunta: "quanto mais se tem, menos
+## se vê?" → ESCURIDÃO. Cada erro apaga uma tocha do salão. Voz do hospital: o exame de sangue.
 ## As correntes se partem, tudo fica branco e B some (voz do hospital: o leito de B entra
 ## em falência, com a linha reta do monitor).
 ## Parte 2 (fase branca, no mesmo capítulo): só A. Três lembranças de B flutuam no
@@ -21,7 +21,7 @@ const W := Vector3(80, 0, 0)
 
 const MEMORIES := [
 	{"pos": Vector3(-5.5, 0, -1.5), "line": "Lembra quando a gente prometeu não se perder?"},
-	{"pos": Vector3(5.5, 0, -5.0), "line": "Eu te pedi para sair. Você saiu. Era isso que eu queria."},
+	{"pos": Vector3(5.5, 0, -5.0), "line": "Eu cantei o caminho inteiro. Você ria. Lembra?"},
 	{"pos": Vector3(-1.5, 0, -10.5), "line": "Acorda. Por favor, acorda."},
 ]
 
@@ -257,7 +257,7 @@ func _build_open_cell(iron: Material) -> void:
 		Build.billboard(D, "reeds", p, 0.03, 1, 0, Color(0.45, 0.5, 0.45))
 	Build.omni(D, Vector3(-9.8, 1.2, -7.8), Color("7f95c8"), 0.25, 3.0)
 	memory(CELL_MEMORY, "m8", "Depois",
-		"Na margem, gritei o nome de %s até a voz acabar.\n\nDepois eu decidi não lembrar.\n\nÉ mais fácil ter medo de um monstro do que de mim." % Game.name_b)
+		"Na margem, gritei até a voz acabar.\n\nAs duas luzes continuavam acesas lá no fundo.\n\nNinguém mais subiu.")
 
 
 ## Fileira de barras de ferro entre dois pontos do chão.
@@ -321,6 +321,7 @@ func _begin() -> void:
 		"b: Fala comigo enquanto anda. Assim eu sei que você ainda está aí.",
 		"a: Estou aqui. Não para de falar também.",
 	])
+	bleed(["Chegou o sangue do leito %d." % Game.number_a, "Positivo. Benzodiazepínico e álcool."])
 	objective("Sigam pelos corredores até as grades ao norte.")
 	hints([
 		"Há uma placa no chão diante de cada grade.",
@@ -383,7 +384,7 @@ func _open_gates() -> void:
 		"b: Está acorrentado. Não se mexa rápido.",
 		"A criatura ergue a cabeça. A voz não sai da boca: sai das paredes.",
 		"\"Vieram em par. Faz tanto tempo que ninguém desce em par.\"",
-		"\"Cheguem perto. Quero ver quem estava dirigindo.\"",
+		"\"Cheguem perto. Quero ver qual de vocês trouxe o outro.\"",
 		"b: Não escuta, %s. Não escuta nada do que ela disser." % Game.name_a,
 	])
 	cam.target = party.active
@@ -410,8 +411,8 @@ func _on_monster(ch: Character) -> void:
 		cam.shake(0.3)
 		await say([
 			"\"Você trouxe %s até aqui.\"" % Game.name_b,
-			"\"Como trouxe até a ponte.\"",
-			"a: ...Eu não sei do que está falando.",
+			"\"Não foi a primeira vez.\"",
+			"a: Eu não sei do que está falando.",
 			"\"Sabe. Uma pergunta. Uma resposta. É só isso que eu peço.\"",
 			RIDDLE,
 			"b: %s... a criatura não tira os olhos de você." % Game.name_a,
@@ -445,8 +446,8 @@ func _break_chains() -> void:
 	await say([
 		"\"...Escuridão.\"",
 		"Pela primeira vez, a criatura não parece faminta. Parece triste.",
-		"\"Você fechou os olhos por um segundo, %s. Lembra quanto custou?\"" % Game.name_a,
-		"\"Agora abra.\"",
+		"\"Quanto mais escuro, menos se vê. Você sabe disso melhor que ninguém, %s.\"" % Game.name_a,
+		"\"Agora abra os olhos.\"",
 	])
 	Audio.sfx("chain_rattle", 2.0)
 	Audio.sfx("monster_growl", 0.0, 0.7)
@@ -651,8 +652,7 @@ func _on_memory(ch: Character, i: int) -> void:
 			lines.append("a: A voz de %s... vem de todo lugar." % Game.name_b)
 			lines.append("?: Acorde...")
 		2:
-			lines.append("a: Sair de onde? Do carro?")
-			lines.append("a: Eu não quero lembrar disso.")
+			lines.append("a: Lembro da música. Não lembro do resto.")
 			lines.append("?: Acorde...")
 		3:
 			lines.append("?: Acorde...")

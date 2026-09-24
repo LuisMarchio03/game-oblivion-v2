@@ -45,7 +45,7 @@ const STAGE_BLEED := [
 	["Benzodiazepínico no sangue. Dose de quem queria dormir."],
 	["Álcool acima do limite. Misturado com o remédio."],
 	["Os amigos da festa já depuseram. Ninguém chamou um táxi."],
-	["Uma testemunha viu os dois brigando pela chave do carro."],
+	["Uma testemunha viu os dois brigando pela chave do carro.", "Quem estava dirigindo?"],
 ]
 
 const FOUND := [
@@ -727,7 +727,9 @@ func _finale() -> void:
 	await say([
 		"b: %s." % Game.name_a,
 		"b: Olha para mim. Não para isso.",
-		"b: Naquela noite eu gritei para você sair do carro. Você saiu. Era tudo o que eu queria.",
+		"b: Naquela noite eu pedi a chave. Você passou direto.",
+		"b: Eu cantei a estrada inteira para você não dormir.",
+		"b: Depois eu gritei para você sair do carro. Você saiu. Era tudo o que eu queria.",
 		"b: Agora eu grito de novo. Sai daqui. Acorda.",
 		"?: Se acordar, vai lembrar. Todo dia. Da ponte, da água, da chave.",
 		"b: Vai doer. E você vai continuar mesmo assim.",

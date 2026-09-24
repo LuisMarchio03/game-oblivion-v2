@@ -3,7 +3,7 @@ extends LevelBase
 ## A e B acordam encharcados em margens opostas de um riacho. B lê a pedra pintada;
 ## A puxa as alavancas na ordem certa (verde, vermelha, azul) e a ponte desce.
 ## Terror: rio abaixo, perto da câmera, um carro afundado pisca os faróis debaixo
-## d'água (quem chega perto comenta). Errar a ordem apaga as velas das alavancas.
+## d'água (quem chega perto comenta, sem saber o que é). Errar a ordem apaga as velas das alavancas.
 ## Quando a ponte desce, o hospital vaza (voz do cap. 1) e o Esquecido aparece entre
 ## as árvores da margem de B; um clarão e ele some.
 ## Lembrança m1 ("A festa"): canto escuro a noroeste do lado de A, atrás de um tronco caído.
@@ -213,16 +213,14 @@ func _near_car(ch: Character) -> void:
 	Audio.sfx("drip", -6.0)
 	if ch.who == "a":
 		await say([
-			"a: Tem luz debaixo da água.",
-			"a: Dois faróis. Piscando.",
-			"a: É um carro. Lá no fundo.",
-			"a: ...eu não quero olhar para isso.",
+			"a: Tem luz lá no fundo da água.",
+			"a: Duas. Apagam e acendem.",
 		])
 	else:
 		await say([
-			"b: Tem um carro no fundo do riacho.",
-			"b: Os faróis ainda piscam. Depois de tanto tempo debaixo d'água?",
-			"b: %s... esse carro parece o seu." % Game.name_a,
+			"b: Tem alguma coisa brilhando lá embaixo.",
+			"b: Deve ser reflexo.",
+			"b: ...de quê?",
 		])
 
 
@@ -242,7 +240,7 @@ func _build_memory() -> void:
 	var cup := Build.cylinder(geo, 0.05, 0.12, MEMORY + Vector3(0.3, 0.05, 0.1), Build.color_mat(Color("a8222a"), 0.05), false, 8)
 	cup.rotation_degrees.z = 90
 	memory(MEMORY, "m1", "A festa",
-		"A música estava alta demais. Alguém pôs um copo na minha mão.\n\n%s me puxou pelo braço: \"Vamos embora. Eu dirijo.\"\n\nEu ri. Eu disse que estava bem." % Game.name_b)
+		"A música estava alta demais. Alguém pôs um copo na minha mão.\n\n%s riu de alguma coisa que eu disse.\n\nQueria lembrar o que era." % Game.name_b)
 
 
 func _light_of(n: Node) -> Light3D:
@@ -319,8 +317,8 @@ func _lower_bridge() -> void:
 	Audio.sfx("success", -4.0)
 	# O hospital vaza enquanto a ponte assenta.
 	bleed([
-		"...leito %d, retirado do rio pelos bombeiros às quatro e quarenta." % Game.number_a,
-		"Hipotermia. Pupilas reagindo.",
+		"Pupilas reagindo.",
+		"Mais um cobertor aqui, por favor.",
 	])
 	# Entre as árvores do outro lado, alguém está parado olhando.
 	var s := spawn_stalker()
@@ -338,10 +336,9 @@ func _lower_bridge() -> void:
 	Game.unlock_input()
 	await say([
 		"b: A ponte desceu.",
-		"b: Você viu? Tinha alguém ali. Com a mão no rosto.",
-		"a: Vi. Parado entre as árvores. Do seu lado.",
-		"a: A roupa pingava. Como a nossa.",
-		"b: Não quero ficar aqui. Vem logo, %s." % Game.name_a,
+		"b: Tinha alguém ali. Entre as árvores.",
+		"a: Eu vi.",
+		"b: Vem logo, %s." % Game.name_a,
 	])
 	objective("Atravessem a ponte e sigam juntos pela trilha iluminada ao norte.")
 	hints([

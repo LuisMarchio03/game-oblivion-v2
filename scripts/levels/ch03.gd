@@ -1,5 +1,5 @@
 extends LevelBase
-## Capítulo 3 — A Capela. Cheira a álcool e remédio, como um corredor de hospital.
+## Capítulo 3 — A Capela. Cheira a remédio.
 ## 1) Grade levadiça: só sobe enquanto alguém pisa na placa. Um segura, o outro
 ##    passa e, do outro lado, puxa a alavanca que trava a grade aberta.
 ##    Quem fica na placa, longe do parceiro, é caçado (`lonely_watch`, ~30 s): sussurros,
@@ -9,9 +9,9 @@ extends LevelBase
 ##    B reconhece o relógio: era do avô de B. Quando A chega perto, a voz falsa de B sai
 ##    do confessionário pedindo para não acertar o relógio; depois, B nega ter falado.
 ## 3) Console do relógio da torre no altar: 4:15 (errar apaga as velas do altar). Voz do
-##    hospital com a hora do acidente. O altar se abre, o espelho mostra a mão de sangue,
+##    hospital (sedação; a hora só ganha sentido no final). O altar se abre, o espelho mostra a mão de sangue,
 ##    os números e, por um instante, três figuras no reflexo. Saída pelos fundos.
-## Lembrança m3 ("Os comprimidos"): atrás da estátua no canto noroeste, junto de um frasco caído.
+## Lembrança m3 ("A bolsa"): atrás da estátua no canto noroeste, junto de um frasco caído.
 
 const NAVE := Rect2(-8, -16, 16, 25)
 const GRADE_Z := 0.0
@@ -352,8 +352,8 @@ func _reveal() -> void:
 	Game.lock_input()
 	if not _locked:
 		_lock_grade()
-	# O hospital vaza: a mesma hora.
-	bleed(["Horário do acidente, segundo a perícia: quatro e quinze."])
+	# O hospital vaza.
+	bleed(["Pressão estável. Pode diminuir a sedação."])
 	# O altar se abre.
 	await get_tree().create_timer(0.6).timeout
 	await cam.look_at_point(ALTAR + Vector3(0, 0.6, 0), 1.2)
@@ -391,10 +391,9 @@ func _reveal() -> void:
 	await say([
 		"a: %d. Eu conheço esse número. Não sei de onde." % Game.number_a,
 		"b: O meu é %d. Parece que estava escrito em mim." % Game.number_b,
-		"b: %s... no espelho. Tinha mais alguém atrás da gente." % Game.name_a,
-		"a: Eu vi. Não olha de novo.",
-		"b: Ouviu isso? A porta dos fundos se abriu.",
-		"a: Vamos. Não quero ficar mais nem um minuto aqui.",
+		"b: No espelho. Éramos três.",
+		"a: Eu vi.",
+		"b: A porta dos fundos abriu.",
 	])
 	objective("Saiam juntos pela porta dos fundos.")
 	hints([
@@ -464,8 +463,8 @@ func _build_decor() -> void:
 	bottle.rotation_degrees = Vector3(0, 30, 90)
 	for k in 2:
 		Build.sphere(geo, 0.025, MEMORY + Vector3(0.55 + k * 0.09, 0.025, 0.3 - k * 0.05), Build.color_mat(Color("e8e8e0"), 0.1))
-	memory(MEMORY, "m3", "Os comprimidos",
-		"A cabeça doía. Tomei dois do meu remédio, o de dormir, porque era o que tinha na bolsa.\n\nDepois o copo. Depois outro.\n\nA bula dizia: não dirija.")
+	memory(MEMORY, "m3", "A bolsa",
+		"A cabeça doía. Procurei alguma coisa na bolsa.\n\nAchei. Tomei dois.\n\nNem olhei o que era.")
 	# Tochas na entrada.
 	Build.torch(geo, Vector3(NAVE.position.x + 0.4, 1.9, 6.5), 1.2, 6.0)
 	Build.torch(geo, Vector3(NAVE.end.x - 0.4, 1.9, 6.5), 1.2, 6.0)
@@ -575,7 +574,6 @@ func _on_confessional(ch: Character) -> void:
 		"x: %s..." % Game.name_a,
 		"x: Não mexe no relógio. Deixa ele parado.",
 		"x: Aqui dentro a hora não passa. Fica aqui comigo.",
-		"x: Não precisa acordar.",
 		"a: %s? Você está aí dentro?" % Game.name_b,
 		"A cortina não se mexe. A cabine está vazia.",
 	])
@@ -590,7 +588,7 @@ func _on_confessional(ch: Character) -> void:
 	else:
 		lines.append("b: Eu nem estava perto do confessionário.")
 	lines.append("a: Era a sua voz. Vinha lá de dentro.")
-	lines.append("b: Não era eu, %s. Juro que não era eu." % Game.name_a)
+	lines.append("b: Não era eu.")
 	await say(lines)
 
 
@@ -607,8 +605,8 @@ func _examine_watch(ch: Character) -> void:
 	elif ch.who == "a" and not _watch_a:
 		_watch_a = true
 		await say([
-			"a: Eu já vi esse relógio. Na mão de alguém.",
-			"a: ...não quero lembrar de quem.",
+			"a: Parado em três e quinze.",
+			"a: Eu já vi esse relógio. Não lembro onde.",
 		])
 
 
@@ -658,7 +656,7 @@ func _begin() -> void:
 	objective("Explorem a capela.")
 	await say([
 		"a: Está mais frio aqui dentro do que lá fora.",
-		"b: Tem cheiro de álcool. De remédio. Parece corredor de hospital.",
+		"b: Cheira a remédio aqui dentro.",
 		"a: Uma grade de ferro fecha a nave. Não dá para levantar.",
 		"b: E tem uma placa de metal no chão, perto da parede.",
 		"a: Se um de nós pisar, o outro passa. Mas quem fica na placa fica longe de todo mundo.",
