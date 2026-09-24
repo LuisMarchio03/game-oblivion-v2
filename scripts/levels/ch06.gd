@@ -1,8 +1,13 @@
 extends LevelBase
 ## Capítulo 6 — O Sótão (enigma 6 original, texto reescrito).
-## Sótão dividido ao meio. A tem a carta e o código da canção; B tem a canção e o
-## código da carta. Linha = número da linha; número = posição da letra (só letras).
-## Porta de A: MEDO. Porta de B: NOME.
+## O sótão da casa da família de B, dividido ao meio por uma parede de tábuas. A tem a carta
+## e o código da canção; B tem a canção e o código da carta. Linha = número da linha;
+## número = posição da letra (só letras). Porta de A: MEDO. Porta de B: NOME.
+## Terror: passos e arranhões do outro lado da parede; desenhos infantis de dois bonecos num
+## carro debaixo d'água (do lado de B, um deles sobe e o outro fica); a voz falsa de B pela
+## parede depois que A lê a carta (B nega quando o jogador volta para B); na primeira porta
+## aberta, um apagão com o Esquecido parado num canto, que some quando a luz volta; luzes de
+## erro nas duas fechaduras; vozes do hospital; lembrança m6 atrás do armário coberto (lado A).
 
 const LETTER := [
 	"A noite caiu depressa e a escuridão ficou tão densa que eu mal conseguia respirar",
@@ -20,6 +25,16 @@ const SONG := [
 var _doors := {}
 var _opened := {"a": false, "b": false}
 var _landed := {"a": false, "b": false}
+var _door_lights := {"a": [], "b": []}
+var _scratch: Node3D            # de onde vêm os passos atrás da parede
+var _fake_done := false         # A ouviu a voz que imita B
+var _denied := false            # B verdadeiro já negou
+var _bleed_done := false
+var _blackout_done := false
+var _dark := false
+var _drawings_seen := 0
+
+const MEMORY_POS := Vector3(-8.0, 0, -0.8)
 
 
 func _init() -> void:
@@ -128,8 +143,10 @@ func _build() -> void:
 	for x in [-6.0, 6.0]:
 		var win := Build.cylinder(geo, 0.35, 0.1, Vector3(x, 2.6, -7.83), Build.color_mat(Color("4d6a9c"), 0.6), false, 16)
 		win.rotation_degrees.x = 90
-		Build.spot(geo, Vector3(x, 2.6, -7.2), Vector3(x * 0.8, 0, -3.5), Color("8fb0ff"), 2.2, 10.0, 28.0, true)
+		var moonbeam := Build.spot(geo, Vector3(x, 2.6, -7.2), Vector3(x * 0.8, 0, -3.5), Color("8fb0ff"), 2.2, 10.0, 28.0, true)
+		_door_lights["a" if x < 0 else "b"].append(moonbeam)
 	Build.motes(geo, Vector3(0, 1.6, -2), Vector3(8.5, 1.4, 5.5), 90, Color(0.8, 0.85, 1.0, 0.5), "dust", 0.04)
+	_build_horror()
 
 
 func _frame(pos: Vector3, color: Color) -> void:
@@ -160,11 +177,170 @@ static func letter_at(line: String, pos: int) -> String:
 	return only[pos - 1] if pos >= 1 and pos <= only.length() else ""
 
 
+
+
+# --- Terror: desenhos, lembrança, luzes das fechaduras ----------------------------------
+
+func _build_horror() -> void:
+	# Caixotes com vela junto das portas: as luzes que o erro apaga, junto do luar da janela.
+	var ca := Build.candle(geo, Vector3(-0.8, 0.9, -7.0), 0.9, 4.0)
+	var cb := Build.candle(geo, Vector3(0.75, 0.7, -6.0), 0.9, 4.0)
+	_door_lights["a"].append(_light_of(ca))
+	_door_lights["b"].append(_light_of(cb))
+	for side in ["a", "b"]:
+		for l in _door_lights[side]:
+			dread_light(l, side)
+	# Desenhos infantis pregados na parede norte, um par de cada lado.
+	_drawing(Vector3(-2.3, 1.5, -7.82), false, 4.0)
+	_drawing(Vector3(-1.25, 1.95, -7.82), false, -7.0)
+	_drawing(Vector3(2.3, 1.5, -7.82), true, -3.0)
+	_drawing(Vector3(1.3, 1.95, -7.82), false, 6.0)
+	interact(Vector3(-2.1, 0.5, -7.1), "Olhar os desenhos", _look_drawings, "a", 1.1)
+	interact(Vector3(2.1, 0.5, -7.1), "Olhar os desenhos", _look_drawings, "b", 1.1)
+	# Origem dos passos e arranhões atrás da parede de tábuas.
+	_scratch = Node3D.new()
+	_scratch.name = "Arranhoes"
+	geo.add_child(_scratch)
+
+	# Lembrança m6: atrás de um armário coberto, numa goteira no canto oeste.
+	var sheet := Build.color_mat(Color("b9bcc4"))
+	Build.box(geo, Vector3(1.0, 1.9, 0.7), Vector3(-7.9, 0.95, 0.3), sheet, true, 4.0)
+	Build.box(geo, Vector3(0.8, 0.12, 0.5), Vector3(-7.9, 1.96, 0.3), sheet, false, -6.0)
+	var puddle := Build.color_mat(Color("16283f"), 0.15, 0.05)
+	Build.box(geo, Vector3(1.6, 0.01, 0.9), Vector3(-7.45, 0.006, -0.85), puddle, false, 8.0)
+	Build.cylinder(geo, 0.2, 0.32, Vector3(-8.55, 0.16, -1.25), Build.mat("rust_metal"), false, 10)
+	zone(MEMORY_POS, Vector3(3.0, 2, 2.4), func(ch: Character):
+		if ch.who == "a":
+			Audio.sfx_at("drip", _scratch, -30.0, 1.0)
+			Audio.sfx("drip", -12.0)
+		, false)
+	memory(MEMORY_POS, "m6", "A água",
+		"Frio. Escuro. A água entrando pelo painel.\n\nO cinto não abria. Eu puxava e ele não abria.\n\nAí duas mãos abriram por mim.")
+
+
+func _light_of(n: Node) -> Light3D:
+	if n is Light3D:
+		return n
+	for c in n.get_children():
+		if c is Light3D:
+			return c
+	return null
+
+
+## Cada erro apaga primeiro as luzes da porta que está sendo tentada.
+func _focus_dread(side: String) -> void:
+	dread_focus(side)
+
+
+## Desenho de giz de cera: um carro debaixo d'água com dois bonecos. Em `escaped`, um deles
+## sobe para fora do carro e o outro fica dentro, com a mão no vidro.
+func _drawing(pos: Vector3, escaped: bool, tilt: float) -> void:
+	var s := Sprite3D.new()
+	s.texture = _drawing_tex(escaped)
+	s.pixel_size = 0.017
+	s.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	s.shaded = true
+	s.double_sided = true
+	s.position = pos
+	s.rotation_degrees.z = tilt
+	geo.add_child(s)
+	Build.sphere(geo, 0.022, pos + Vector3(0, 0.27, 0.02), Build.color_mat(Color("b3283f"), 0.2))
+
+
+func _drawing_tex(escaped: bool) -> ImageTexture:
+	var w := 48
+	var h := 36
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	img.fill(Color("e9e2cf"))
+	# Água: giz azul riscado com força, da superfície até o fundo.
+	for y in range(8, h - 2):
+		for x in range(2, w - 2):
+			if (x * 3 + y * 5) % 7 < 4 or y % 4 == 0:
+				img.set_pixel(x, y, Color("2d5fb8") if (x * 7 + y * 3) % 11 < 7 else Color("4f86d9"))
+	for x in range(1, w - 1):
+		_px(img, x, 7 + int(round(sin(x * 0.7))), Color("1b3f86"))
+	# Carro vermelho no fundo.
+	var red := Color("b3283f")
+	_rect(img, 11, 24, 36, 30, red)
+	_rect(img, 16, 19, 31, 24, red)
+	_rect(img, 18, 20, 22, 23, Color("e9e2cf"))
+	_rect(img, 25, 20, 29, 23, Color("e9e2cf"))
+	_circle(img, 16, 31, 2, Color("1a1a1a"))
+	_circle(img, 31, 31, 2, Color("1a1a1a"))
+	var ink := Color("1a1a1a")
+	# Boneco 1: dentro, na janela da esquerda.
+	_circle(img, 20, 21, 1, ink)
+	_px(img, 20, 23, ink)
+	if escaped:
+		# Boneco 2 fora do carro, subindo; na janela da direita, só uma mão no vidro.
+		_circle(img, 34, 11, 1, ink)
+		_line(img, 34, 13, 34, 17, ink)
+		_line(img, 34, 14, 31, 11, ink)
+		_line(img, 34, 14, 37, 11, ink)
+		_line(img, 34, 17, 32, 20, ink)
+		_line(img, 34, 17, 36, 20, ink)
+		_rect(img, 21, 21, 22, 22, ink)
+		for b in [[38, 8], [36, 5], [39, 3]]:
+			_circle(img, b[0], b[1], 1, Color("e9e2cf"))
+	else:
+		_circle(img, 27, 21, 1, ink)
+		_px(img, 27, 23, ink)
+		for b in [[24, 15], [26, 11], [23, 9]]:
+			_circle(img, b[0], b[1], 1, Color("e9e2cf"))
+	return ImageTexture.create_from_image(img)
+
+
+func _px(img: Image, x: int, y: int, c: Color) -> void:
+	if x >= 0 and y >= 0 and x < img.get_width() and y < img.get_height():
+		img.set_pixel(x, y, c)
+
+
+func _rect(img: Image, x0: int, y0: int, x1: int, y1: int, c: Color) -> void:
+	for y in range(y0, y1 + 1):
+		for x in range(x0, x1 + 1):
+			_px(img, x, y, c)
+
+
+func _circle(img: Image, cx: int, cy: int, r: int, c: Color) -> void:
+	for y in range(cy - r, cy + r + 1):
+		for x in range(cx - r, cx + r + 1):
+			if (x - cx) * (x - cx) + (y - cy) * (y - cy) <= r * r + r:
+				_px(img, x, y, c)
+
+
+func _line(img: Image, x0: int, y0: int, x1: int, y1: int, c: Color) -> void:
+	var n := maxi(absi(x1 - x0), absi(y1 - y0))
+	for i in n + 1:
+		var t := float(i) / maxf(n, 1)
+		_px(img, int(round(lerpf(x0, x1, t))), int(round(lerpf(y0, y1, t))), c)
+
+
+func _look_drawings(ch: Character) -> void:
+	_drawings_seen += 1
+	if ch.who == "a":
+		await say([
+			"a: Desenhos de criança. Giz de cera.",
+			"a: Um carro. Dois bonecos de palito lá dentro.",
+			"a: E tudo em volta pintado de azul. Com força, até rasgar o papel.",
+			"a: ...Estão debaixo d'água.",
+		])
+	else:
+		await say([
+			"b: Desenhos de criança. O mesmo carro, todo pintado de azul.",
+			"b: Neste, um dos bonecos está fora do carro. Subindo.",
+			"b: O outro ficou lá dentro. Com a mão no vidro.",
+		])
+
+
+# --- Roteiro ------------------------------------------------------------------------
+
 func _begin() -> void:
 	objective("Encontrem a saída do sótão.")
+	party.switched.connect(_on_switched)
 	await say([
 		"a: Subi por um alçapão. Tem uma parede de tábuas no meio do sótão.",
 		"b: Estou do outro lado dela. Consigo te ouvir, mas não te ver.",
+		"b: Esse cheiro de poeira... eu já estive aqui. Faz muito tempo.",
 		"b: Tem uma porta aqui. Trancada, com uma placa de números do lado.",
 		"a: Aqui também. E um quadro de giz com um exemplo esquisito.",
 	])
@@ -174,6 +350,86 @@ func _begin() -> void:
 		"A porta de %s: carta de %s + placa de %s = NOME." % [Game.name_b, Game.name_a, Game.name_b],
 		"A porta de %s: canção de %s + placa de %s = MEDO." % [Game.name_a, Game.name_b, Game.name_a],
 	])
+	_scratch_loop()
+
+
+## Passos e arranhões do outro lado da parede, perto de quem está jogando.
+func _scratch_loop() -> void:
+	var first := true
+	while is_inside_tree() and not _finishing:
+		await get_tree().create_timer(rng.randf_range(10.0, 17.0), false).timeout
+		if _finishing or _dark or not Game.can_control():
+			continue
+		var ch := party.active
+		var x := ch.global_position.x
+		if absf(x) > 2.8:
+			continue
+		var other := party.other(ch)
+		_scratch.global_position = Vector3(0.6 if x < 0.0 else -0.6, 1.0, ch.global_position.z + rng.randf_range(-0.8, 0.8))
+		Audio.sfx_at("glass_squeak", _scratch, -12.0, 14.0)
+		for i in 3:
+			await get_tree().create_timer(0.45, false).timeout
+			Audio.sfx_at("stalker_step", _scratch, -4.0, 14.0)
+		if first and Game.can_control() and other.global_position.distance_to(_scratch.global_position) > 3.0:
+			first = false
+			await say([
+				ch.who + ": Tem alguma coisa arranhando a parede. Do outro lado.",
+				ch.who + ": %s, é você?" % Game.char_name(other.who),
+				other.who + ": Não. Eu não estou aí.",
+			])
+
+
+func _process(_delta: float) -> void:
+	# A voz que imita B vem pela parede: depois da carta, com A encostando nas tábuas.
+	if _fake_done or _finishing or _dark or not Game.can_control():
+		return
+	var a := party.a
+	if party.active != a or a.global_position.x < -2.4 or not Game.has_doc("a", "ch6_carta"):
+		return
+	if a.global_position.distance_to(party.b.global_position) < 4.0:
+		return
+	_fake_done = true
+	_fake_voice()
+
+
+func _fake_voice() -> void:
+	_scratch.global_position = Vector3(0.6, 1.2, party.a.global_position.z)
+	Audio.sfx_at("stalker_step", _scratch, -6.0, 12.0)
+	await get_tree().create_timer(0.6, false).timeout
+	await say([
+		"x: %s. Encosta aqui. Na parede." % Game.name_a,
+		"x: Eu estou bem do outro lado. Consegue me ouvir respirar?",
+		"x: Não abre a porta. Lá embaixo dói. Fica aqui comigo.",
+		"a: %s...? Por que você está falando assim?" % Game.name_b,
+	])
+	Audio.sfx("breath", -8.0)
+	await get_tree().create_timer(1.5, false).timeout
+	_hospital()
+
+
+## O hospital vaza: alguém pede que conversem com o paciente.
+func _hospital() -> void:
+	if _bleed_done:
+		return
+	_bleed_done = true
+	bleed(["Pode conversar. Dizem que eles escutam.", "Fala o nome. Fala do que tem medo."])
+
+
+## O B verdadeiro nega ter falado (na primeira vez que o jogador volta para B).
+func _on_switched(who: String) -> void:
+	if who != "b" or not _fake_done or _denied:
+		return
+	_denied = true
+	await get_tree().create_timer(0.3, false).timeout
+	await say(_denial())
+
+
+func _denial() -> Array:
+	return [
+		"b: %s? Eu ouvi você falar o meu nome." % Game.name_a,
+		"b: Mas eu não disse nada. Nada.",
+		"b: Se tem alguma coisa aí imitando a minha voz... não escuta.",
+	]
 
 
 func _try_door(ch: Character, who: String) -> void:
@@ -188,19 +444,116 @@ func _try_door(ch: Character, who: String) -> void:
 	lock.max_len = 4
 	lock.placeholder = "????"
 	_doors[who].rattle()
+	_focus_dread(who)
 	if await puzzle(lock):
 		_opened[who] = true
 		Audio.sfx("lock_open", -2.0)
 		_doors[who].open()
 		if _opened["a"] and _opened["b"]:
-			await say([
+			var other := "b" if ch.who == "a" else "a"
+			var lines := [
 				"%s: Abriu. Tem uma escada estreita descendo." % ch.who,
-				"%s: A minha também. Vejo você lá embaixo?" % ("b" if ch.who == "a" else "a"),
-			])
+				"%s: A minha também. Vejo você lá embaixo?" % other,
+			]
+			if _fake_done and not _denied:
+				_denied = true
+				lines.append("a: Antes, pela parede... era você falando comigo?")
+				lines.append_array(_denial())
+			if _drawings_seen > 0:
+				lines.append_array([
+					"a: Aqueles desenhos. O carro debaixo d'água.",
+					"b: Não pensa nisso agora. Desce.",
+				])
+			await say(lines)
 			objective("Desçam pelas duas escadas ao mesmo tempo.")
 		else:
 			Audio.sfx("whisper_saia", -10.0)
 			await say(["%s: Uma porta abriu. Falta a outra." % ch.who])
+			await _blackout()
+			_hospital()
+
+
+# --- Apagão --------------------------------------------------------------------------
+
+## Tudo apaga; nos clarões, o Esquecido está parado num canto; quando a luz volta, sumiu.
+func _blackout() -> void:
+	if _blackout_done or _finishing:
+		return
+	_blackout_done = true
+	_dark = true
+	Game.lock_input()
+	await get_tree().create_timer(0.8).timeout
+	var saved := []
+	for n in geo.find_children("*", "Light3D", true, false):
+		var l := n as Light3D
+		var flick := []
+		for c in l.get_children():
+			if c is Flicker and c.is_processing():
+				c.set_process(false)
+				flick.append(c)
+		saved.append([l, l.light_energy, flick])
+	var lamps := [party.a.lamp.light_energy, party.b.lamp.light_energy]
+	var amb := env.ambient_light_energy
+	var moon_e := moon.light_energy
+	Audio.sfx("light_out", -2.0)
+	_scale_lights(saved, 0.0)
+	party.a.lamp.light_energy = 0.0
+	party.b.lamp.light_energy = 0.0
+	env.ambient_light_energy = amb * 0.12
+	moon.light_energy = 0.0
+	await get_tree().create_timer(1.4).timeout
+	var ch := party.active
+	var side := -1.0 if ch.global_position.x < 0.0 else 1.0
+	var corner := Vector3(side * 7.3, 0, -6.9)
+	if ch.global_position.distance_to(corner) < 3.0:
+		corner = Vector3(side * 7.9, 0, 2.9)
+	var s := spawn_stalker()
+	s.hunting = false
+	s.appear(corner, 0.0)
+	var reveal := Build.omni(geo, corner + Vector3(0, 2.0, 1.1), Color("aebde0"), 0.0, 3.0)
+	for i in 3:
+		_scale_lights(saved, 0.45)
+		reveal.light_energy = 0.9
+		env.ambient_light_energy = amb * 0.5
+		if i == 0:
+			Audio.sfx("dread_sting", -4.0)
+		await get_tree().create_timer(0.09 + i * 0.05).timeout
+		_scale_lights(saved, 0.0)
+		reveal.light_energy = 0.0
+		env.ambient_light_energy = amb * 0.12
+		await get_tree().create_timer(0.6).timeout
+	reveal.queue_free()
+	Audio.sfx("breath", -6.0)
+	await get_tree().create_timer(0.8).timeout
+	s.vanish(0.0)
+	await get_tree().create_timer(0.3).timeout
+	# A luz volta. O canto está vazio.
+	for e in saved:
+		var l: Light3D = e[0]
+		if is_instance_valid(l):
+			create_tween().tween_property(l, "light_energy", e[1], 0.5)
+			for f in e[2]:
+				f.set_process(true)
+	party.a.lamp.light_energy = lamps[0]
+	party.b.lamp.light_energy = lamps[1]
+	create_tween().tween_property(env, "ambient_light_energy", amb, 0.5)
+	moon.light_energy = moon_e
+	await get_tree().create_timer(0.6).timeout
+	_dark = false
+	Game.unlock_input()
+	var other := party.other(ch).who
+	await say([
+		ch.who + ": ...Tinha alguém no canto. Parado. Olhando.",
+		other + ": A luz apagou aqui também. Você está bem?",
+		ch.who + ": Quando a luz voltou, não tinha mais ninguém.",
+	])
+
+
+func _scale_lights(saved: Array, k: float) -> void:
+	for e in saved:
+		var l: Light3D = e[0]
+		if is_instance_valid(l):
+			l.light_energy = e[1] * k
 
 
 func _on_landing(ch: Character, who: String) -> void:
@@ -208,6 +561,34 @@ func _on_landing(ch: Character, who: String) -> void:
 		return
 	_landed[who] = true
 	if _landed["a"] and _landed["b"]:
+		if stalker and stalker.visible:
+			stalker.vanish(0.0)
 		finish()
 	elif ch == party.active:
 		Ui.toast("Esperando %s chegar à outra escada." % Game.char_name("b" if who == "a" else "a"))
+
+
+# --- Depuração (tools/shot.sh --call=...) ------------------------------------------
+
+## A olhando os desenhos da parede norte.
+func _debug_drawings() -> void:
+	party.a.teleport(Vector3(-2.1, 0.05, -6.6))
+	cam.snap()
+
+
+## Apagão no meio: o Esquecido no canto, num clarão.
+func _debug_blackout() -> void:
+	party.a.teleport(Vector3(-4.0, 0.05, -6.8))
+	cam.snap()
+	for n in geo.find_children("*", "Light3D", true, false):
+		(n as Light3D).light_energy *= 0.4
+		for c in n.get_children():
+			if c is Flicker:
+				c.set_process(false)
+	env.ambient_light_energy *= 0.4
+	spawn_stalker().appear(Vector3(-7.3, 0, -6.9), 0.0)
+
+
+func _debug_memory() -> void:
+	party.a.teleport(MEMORY_POS + Vector3(1.0, 0.05, 0.0))
+	cam.snap()

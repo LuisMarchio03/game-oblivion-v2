@@ -1,7 +1,7 @@
 class_name NoteView
 extends ModalPanel
 ## Mostra um documento. Estilos: paper (padrão), hand, stone, sign, screen,
-## pigpen, pigpen_key, image. Campos do doc: title, body, style, image, cipher.
+## pigpen, pigpen_key, image, memory. Campos do doc: title, body, style, image, cipher.
 
 const STYLES := {
 	"paper": {"font": UiTheme.FONT_TYPED, "ink": Color("2b2119"), "bg": "paper", "tint": Color(0.93, 0.88, 0.78)},
@@ -13,6 +13,7 @@ const STYLES := {
 	"pigpen": {"font": UiTheme.FONT_TYPED, "ink": Color("2b2119"), "bg": "paper", "tint": Color(0.93, 0.88, 0.78)},
 	"pigpen_key": {"font": UiTheme.FONT_TYPED, "ink": Color("2b2119"), "bg": "paper", "tint": Color(0.93, 0.88, 0.78)},
 	"image": {"font": UiTheme.FONT_UI, "ink": UiTheme.INK, "bg": Color("05080f")},
+	"memory": {"font": UiTheme.FONT_SERIF, "ink": Color("efe2cf"), "bg": Color("0c0a12"), "size": 42},
 }
 
 var doc: Dictionary

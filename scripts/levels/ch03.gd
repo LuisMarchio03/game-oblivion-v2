@@ -1,10 +1,17 @@
 extends LevelBase
-## Capítulo 3 — A Capela.
+## Capítulo 3 — A Capela. Cheira a álcool e remédio, como um corredor de hospital.
 ## 1) Grade levadiça: só sobe enquanto alguém pisa na placa. Um segura, o outro
 ##    passa e, do outro lado, puxa a alavanca que trava a grade aberta.
+##    Quem fica na placa, longe do parceiro, é caçado (`lonely_watch`, ~30 s): sussurros,
+##    o Esquecido surge atrás e, se alcança, empurra a vítima para fora da placa e a
+##    grade cai (a menos que já esteja travada).
 ## 2) Confessionário: relógio de bolso parado em 3:15 e o bilhete "atrasou uma hora".
-## 3) Console do relógio da torre no altar: 4:15. O altar se abre, o espelho mostra
-##    a mão de sangue e os números. Saída pelos fundos.
+##    B reconhece o relógio: era do avô de B. Quando A chega perto, a voz falsa de B sai
+##    do confessionário pedindo para não acertar o relógio; depois, B nega ter falado.
+## 3) Console do relógio da torre no altar: 4:15 (errar apaga as velas do altar). Voz do
+##    hospital com a hora do acidente. O altar se abre, o espelho mostra a mão de sangue,
+##    os números e, por um instante, três figuras no reflexo. Saída pelos fundos.
+## Lembrança m3 ("Os comprimidos"): atrás da estátua no canto noroeste, junto de um frasco caído.
 
 const NAVE := Rect2(-8, -16, 16, 25)
 const GRADE_Z := 0.0
@@ -13,6 +20,14 @@ const ALTAR := Vector3(0, 0, -13.0)
 const MIRROR := Vector3(0, 2.35, -15.72)
 const BACK_DOOR := Vector3(5.5, 0, -16)
 const BLOOD := Color("9a0f16")
+const PLATE := Vector3(-3.4, 0, 2.2)
+const MEMORY := Vector3(-6.3, 0, -15.1)
+const WATCH_DOC := {
+	"id": "ch3_relogio",
+	"title": "Relógio de bolso",
+	"body": "[center]Prata escurecida. O vidro está rachado.\nOs ponteiros não se mexem.\n\n[font_size=96]3:15[/font_size][/center]",
+	"style": "sign",
+}
 
 var _grade: Mover
 var _plate: PressurePlate
@@ -31,6 +46,12 @@ var _locked := false
 var _solved := false
 var _bars: Array[Transform3D] = []
 var _spikes: Array[Transform3D] = []
+var _fake_done := false
+var _watch_a := false
+var _watch_b := false
+var _refl_a: Sprite3D
+var _refl_b: Sprite3D
+var _refl_third: Sprite3D
 
 
 func _init() -> void:
@@ -117,7 +138,7 @@ func _build_grade() -> void:
 		Build.box(geo, Vector3(0.04, 1.4, 0.04), Vector3(x, 4.3, GRADE_Z - 0.1), Build.color_mat(Color("555a60"), 0.0, 0.3), false)
 
 	# Placa de pressão (lado da entrada).
-	_plate = plate(Vector3(-3.4, 0, 2.2), Vector2(1.2, 1.2))
+	_plate = plate(PLATE, Vector2(1.2, 1.2))
 	_plate.changed.connect(_on_plate)
 	Build.box(geo, Vector3(0.05, 0.02, 2.0), Vector3(-2.2, 0.012, 1.2), iron, false, 30.0)
 	# Alavanca (lado do altar).
@@ -161,7 +182,7 @@ func _pull_lever(ch: Character) -> void:
 	await get_tree().create_timer(0.5).timeout
 	await say([
 		"Um trinco de ferro estala. A grade fica presa lá em cima.",
-		ch.who + ": Travou. Pode sair da placa.",
+		ch.who + ": Travou. Pode sair da placa. Vem para perto.",
 	])
 	objective("Descubram como abrir o altar.")
 	hints([
@@ -173,6 +194,7 @@ func _pull_lever(ch: Character) -> void:
 
 func _lock_grade() -> void:
 	_locked = true
+	stop_lonely_watch()
 	_lever_it.disable()
 	_lever.set_down(true)
 	_grade.set_open(true)
@@ -231,18 +253,15 @@ func _build_confessional() -> void:
 	Build.box(geo, Vector3(0.02, 0.01, 0.35), Vector3(cx - 0.4, 0.37, cz - 0.95), Build.color_mat(Color("a0a0a8"), 0.0, 0.3), false, 20.0)
 	Build.flat_sprite(geo, "icon_note", Vector3(cx - 0.3, 0.37, cz - 1.1), Vector3(-90, 30, 0), 0.02)
 	Build.candle(geo, Vector3(cx - 0.35, 0.36, cz - 1.2), 0.6, 3.5)
-	doc(Vector3(cx - 1.35, 0.4, cz - 0.55), {
-		"id": "ch3_relogio",
-		"title": "Relógio de bolso",
-		"body": "[center]Prata escurecida. O vidro está rachado.\nOs ponteiros não se mexem.\n\n[font_size=96]3:15[/font_size][/center]",
-		"style": "sign",
-	}, "Examinar o relógio de bolso", "any", 0.9)
+	interact(Vector3(cx - 1.35, 0.4, cz - 0.55), "Examinar o relógio de bolso", _examine_watch, "any", 0.9)
 	doc(Vector3(cx - 1.35, 0.4, cz - 1.25), {
 		"id": "ch3_bilhete",
 		"title": "Bilhete dobrado",
 		"body": "Meu relógio sempre atrasou uma hora.\n\nFoi a hora em que eu parti.",
 		"style": "hand",
 	}, "Ler o bilhete", "any", 0.9)
+	# Quem chega perto do confessionário (A) ouve a voz que imita B.
+	zone(Vector3(cx - 1.7, 1, cz), Vector3(2.6, 2, 4.2), _on_confessional, false)
 
 
 # --- Altar, console e espelho ----------------------------------------------------------
@@ -281,7 +300,7 @@ func _build_altar() -> void:
 	for x in [-2.3, 2.3]:
 		Build.cylinder(geo, 0.05, 1.3, Vector3(x, 0.65, ALTAR.z - 0.2), iron, false, 6)
 		Build.cylinder(geo, 0.2, 0.06, Vector3(x, 0.03, ALTAR.z - 0.2), iron, true, 8)
-		Build.candle(geo, Vector3(x, 1.3, ALTAR.z - 0.2), 1.0, 5.0)
+		dread_light(_light_of(Build.candle(geo, Vector3(x, 1.3, ALTAR.z - 0.2), 1.0, 5.0)))
 	# Crucifixo alto acima do espelho.
 	var wood := Build.mat("planks_dark", Color(0.8, 0.7, 0.6), 1.0)
 	Build.box(geo, Vector3(0.14, 1.0, 0.1), Vector3(0, 4.35, -15.78), wood, false)
@@ -303,6 +322,10 @@ func _build_altar() -> void:
 	_numbers.shaded = false
 	_numbers.modulate.a = 0.0
 	_mirror_light = Build.omni(geo, Vector3(MIRROR.x, MIRROR.y, -14.6), Color("ff4a3a"), 0.0, 4.0)
+	# Reflexo: os dois... e, por um instante, um terceiro atrás deles.
+	_refl_third = _mirror_figure("forgotten", 4, 1, 0.0, 1.02, 0.02, -15.697, Color(0.55, 0.5, 0.6))
+	_refl_a = _mirror_figure("char_a", 4, 5, -0.45, 1.1, 0.021, -15.686, Color(0.6, 0.68, 0.82))
+	_refl_b = _mirror_figure("char_b", 4, 5, 0.45, 1.1, 0.021, -15.686, Color(0.6, 0.68, 0.82))
 	Build.omni(geo, Vector3(0, 3.2, -13.0), Color("9fb0d8"), 0.5, 5.0)
 
 
@@ -329,6 +352,8 @@ func _reveal() -> void:
 	Game.lock_input()
 	if not _locked:
 		_lock_grade()
+	# O hospital vaza: a mesma hora.
+	bleed(["Horário do acidente, segundo a perícia: quatro e quinze."])
 	# O altar se abre.
 	await get_tree().create_timer(0.6).timeout
 	await cam.look_at_point(ALTAR + Vector3(0, 0.6, 0), 1.2)
@@ -352,7 +377,8 @@ func _reveal() -> void:
 	Audio.sfx("whisper_saia", -8.0)
 	_numbers.text = "%d   %d" % [Game.number_a, Game.number_b]
 	create_tween().tween_property(_numbers, "modulate:a", 1.0, 2.0)
-	await get_tree().create_timer(2.6).timeout
+	await get_tree().create_timer(2.2).timeout
+	await _show_reflection()
 	await Ui.fade_out(1.2)
 	await Ui.narrate(["Vocês sentem uma estranha afinidade com os números %d e %d." % [Game.number_a, Game.number_b]], UiTheme.INK, 44)
 	cam.set_view(Vector3(0, 7.2, 8.6), 34.0, 0.1)
@@ -365,8 +391,10 @@ func _reveal() -> void:
 	await say([
 		"a: %d. Eu conheço esse número. Não sei de onde." % Game.number_a,
 		"b: O meu é %d. Parece que estava escrito em mim." % Game.number_b,
+		"b: %s... no espelho. Tinha mais alguém atrás da gente." % Game.name_a,
+		"a: Eu vi. Não olha de novo.",
 		"b: Ouviu isso? A porta dos fundos se abriu.",
-		"a: Não quero ficar mais nem um minuto aqui.",
+		"a: Vamos. Não quero ficar mais nem um minuto aqui.",
 	])
 	objective("Saiam juntos pela porta dos fundos.")
 	hints([
@@ -431,13 +459,20 @@ func _build_decor() -> void:
 	Build.cylinder(geo, 0.32, 1.5, Vector3(-6.4, 1.25, -13.6), Build.mat("marble_white", Color(0.7, 0.72, 0.8), 1.0), false, 8)
 	Build.sphere(geo, 0.2, Vector3(-6.4, 2.15, -13.6), Build.mat("marble_white", Color(0.7, 0.72, 0.8), 1.0))
 	Build.sphere(geo, 0.16, Vector3(-6.4, 2.45, -13.5), Build.color_mat(Color("d9c27a"), 0.6))
+	# Lembrança m3: atrás da estátua, um frasco de remédio caído e dois comprimidos.
+	var bottle := Build.cylinder(geo, 0.05, 0.14, MEMORY + Vector3(0.35, 0.05, 0.15), Build.color_mat(Color("b86a1e"), 0.05, 0.3), false, 8)
+	bottle.rotation_degrees = Vector3(0, 30, 90)
+	for k in 2:
+		Build.sphere(geo, 0.025, MEMORY + Vector3(0.55 + k * 0.09, 0.025, 0.3 - k * 0.05), Build.color_mat(Color("e8e8e0"), 0.1))
+	memory(MEMORY, "m3", "Os comprimidos",
+		"A cabeça doía. Tomei dois do meu remédio, o de dormir, porque era o que tinha na bolsa.\n\nDepois o copo. Depois outro.\n\nA bula dizia: não dirija.")
 	# Tochas na entrada.
 	Build.torch(geo, Vector3(NAVE.position.x + 0.4, 1.9, 6.5), 1.2, 6.0)
 	Build.torch(geo, Vector3(NAVE.end.x - 0.4, 1.9, 6.5), 1.2, 6.0)
 	# Velas no chão, perto da placa e do espelho.
 	Build.candle(geo, Vector3(-4.6, 0, 1.2), 0.6, 3.5)
-	Build.candle(geo, Vector3(-1.4, 0, -15.3), 0.5, 3.0)
-	Build.candle(geo, Vector3(1.5, 0, -15.3), 0.5, 3.0)
+	dread_light(_light_of(Build.candle(geo, Vector3(-1.4, 0, -15.3), 0.5, 3.0)))
+	dread_light(_light_of(Build.candle(geo, Vector3(1.5, 0, -15.3), 0.5, 3.0)))
 	Build.candle(geo, Vector3(5.0, 0, -15.3), 0.6, 3.5)
 	# Luz de preenchimento (lustres apagados, luar pelas frestas).
 	for z in [4.0, -3.0, -8.5]:
@@ -499,19 +534,143 @@ func _multimesh(mesh: Mesh, xfs: Array[Transform3D], material: Material) -> void
 	geo.add_child(mmi)
 
 
+# --- Terror: quem fica na placa, a voz falsa, o relógio do avô, o reflexo -----------------
+
+func _light_of(n: Node) -> Light3D:
+	for c in n.get_children():
+		if c is Light3D:
+			return c
+	return null
+
+
+func _standing_on_plate(ch: Character) -> bool:
+	var p := ch.global_position
+	return absf(p.x - PLATE.x) < 0.9 and absf(p.z - PLATE.z) < 0.9
+
+
+## Quem está na placa, longe do parceiro, com a grade ainda solta.
+func _plate_victim() -> Variant:
+	if _locked or not _plate.pressed:
+		return null
+	for ch in [party.a, party.b]:
+		if _standing_on_plate(ch) and ch.global_position.distance_to(party.other(ch).global_position) > 3.5:
+			return ch
+	return null
+
+
+## Alcançou quem segurava a placa: a vítima é jogada para fora e a grade cai.
+func _plate_caught(ch: Character) -> void:
+	ch.teleport(PLATE + Vector3(0.2, 0.05, 1.9))
+	Audio.sfx("chain_rattle", -4.0)
+
+
+func _on_confessional(ch: Character) -> void:
+	if ch.who != "a" or ch != party.active or _fake_done or _solved:
+		return
+	_fake_done = true
+	var b_near := party.a.global_position.distance_to(party.b.global_position) < 4.0
+	Audio.sfx("whisper_many", -14.0, 0.8)
+	await get_tree().create_timer(0.5).timeout
+	await say([
+		"x: %s..." % Game.name_a,
+		"x: Não mexe no relógio. Deixa ele parado.",
+		"x: Aqui dentro a hora não passa. Fica aqui comigo.",
+		"x: Não precisa acordar.",
+		"a: %s? Você está aí dentro?" % Game.name_b,
+		"A cortina não se mexe. A cabine está vazia.",
+	])
+	# O B de verdade nega: na hora, se estava perto; senão, quando os dois se encontram.
+	while not _finishing and (party.a.global_position.distance_to(party.b.global_position) > 3.5 or not Game.can_control()):
+		await get_tree().create_timer(0.4, false).timeout
+	if _finishing:
+		return
+	var lines := ["a: Por que você me pediu para não mexer no relógio?", "b: Eu? Eu não falei nada."]
+	if b_near:
+		lines.append("b: Eu estava do seu lado. Não abri a boca.")
+	else:
+		lines.append("b: Eu nem estava perto do confessionário.")
+	lines.append("a: Era a sua voz. Vinha lá de dentro.")
+	lines.append("b: Não era eu, %s. Juro que não era eu." % Game.name_a)
+	await say(lines)
+
+
+func _examine_watch(ch: Character) -> void:
+	await Ui.read_doc(ch.who, WATCH_DOC)
+	if ch.who == "b" and not _watch_b:
+		_watch_b = true
+		await say([
+			"b: Esse relógio...",
+			"b: Era do meu avô. Tem o mesmo amassado na tampa, de quando eu deixei cair.",
+			"b: Vivia atrasado. Meu avô nunca quis consertar.",
+			"b: O que ele está fazendo aqui?",
+		])
+	elif ch.who == "a" and not _watch_a:
+		_watch_a = true
+		await say([
+			"a: Eu já vi esse relógio. Na mão de alguém.",
+			"a: ...não quero lembrar de quem.",
+		])
+
+
+## Figura no espelho (sprite chapado, sem billboard, virada para a nave).
+func _mirror_figure(sprite_name: String, hf: int, vf: int, x: float, y: float, px: float, z: float, tint: Color) -> Sprite3D:
+	var sp := Sprite3D.new()
+	sp.texture = Build.sprite_tex(sprite_name)
+	sp.hframes = hf
+	sp.vframes = vf
+	sp.frame = 0
+	sp.pixel_size = px
+	sp.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	sp.alpha_cut = SpriteBase3D.ALPHA_CUT_DISABLED
+	sp.transparent = true
+	sp.shaded = false
+	sp.double_sided = false
+	sp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if sp.texture:
+		sp.offset = Vector2(0, sp.texture.get_height() / float(vf) / 2.0)
+	sp.position = Vector3(MIRROR.x + x, y, z)
+	sp.modulate = Color(tint.r, tint.g, tint.b, 0.0)
+	geo.add_child(sp)
+	return sp
+
+
+func _show_reflection() -> void:
+	var t := create_tween().set_parallel()
+	t.tween_property(_refl_a, "modulate:a", 0.6, 0.9)
+	t.tween_property(_refl_b, "modulate:a", 0.6, 0.9)
+	await t.finished
+	await get_tree().create_timer(0.6).timeout
+	# Por um instante, são três.
+	_refl_third.modulate.a = 0.95
+	Audio.sfx("dread_sting", -2.0)
+	Audio.sfx("breath", -8.0)
+	Ui.flash(Color(0.35, 0.0, 0.02), 0.3)
+	cam.shake(0.3)
+	await get_tree().create_timer(0.5).timeout
+	_refl_third.modulate.a = 0.0
+	var t2 := create_tween().set_parallel()
+	t2.tween_property(_refl_a, "modulate:a", 0.0, 1.0)
+	t2.tween_property(_refl_b, "modulate:a", 0.0, 1.0)
+	await get_tree().create_timer(1.1).timeout
+
+
 func _begin() -> void:
 	objective("Explorem a capela.")
 	await say([
 		"a: Está mais frio aqui dentro do que lá fora.",
-		"b: Tem uma grade de ferro fechando a nave. Não dá para levantar.",
-		"a: E essa placa de metal no chão, perto da parede?",
+		"b: Tem cheiro de álcool. De remédio. Parece corredor de hospital.",
+		"a: Uma grade de ferro fecha a nave. Não dá para levantar.",
+		"b: E tem uma placa de metal no chão, perto da parede.",
+		"a: Se um de nós pisar, o outro passa. Mas quem fica na placa fica longe de todo mundo.",
+		"b: Então ninguém fica muito tempo.",
 	])
-	objective("Passem pela grade.")
+	objective("Passem pela grade. Não deixem ninguém muito tempo na placa.")
 	hints([
 		"A grade só sobe enquanto alguém pisa na placa de metal.",
-		"Deixe um de vocês na placa. Troque de personagem e passe pela grade com o outro.",
-		"Do outro lado, puxe a alavanca para travar a grade aberta.",
+		"Deixe um de vocês na placa, troque de personagem e passe pela grade com o outro. Rápido: quem fica sozinho na placa é caçado.",
+		"Do outro lado, puxe a alavanca à direita para travar a grade aberta.",
 	])
+	lonely_watch(_plate_victim, 30.0, _plate_caught)
 
 
 # --- Depuração (tools/shot.sh --call=...) ------------------------------------------------
@@ -541,3 +700,21 @@ func _debug_mirror() -> void:
 	cam.target = null
 	cam.offset = Vector3(0, 2.2, 7.5)
 	cam.set("_focus_point", Vector3(MIRROR.x, MIRROR.y + 0.1, MIRROR.z))
+
+
+## Quem ficou na placa, com o Esquecido chegando por trás.
+func _debug_watch() -> void:
+	_grade.set_open(true, true)
+	party.activate("a", true)
+	party.a.teleport(PLATE + Vector3(0, 0.1, 0))
+	party.b.teleport(Vector3(1.0, 0.1, -4.0))
+	_get_shade().appear(PLATE + Vector3(0.6, 0, 2.4), 0.0)
+	cam.snap()
+
+
+## O reflexo com as três figuras.
+func _debug_mirror3() -> void:
+	_debug_mirror()
+	_refl_a.modulate.a = 0.6
+	_refl_b.modulate.a = 0.6
+	_refl_third.modulate.a = 0.95

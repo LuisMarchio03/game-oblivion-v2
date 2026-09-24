@@ -1,12 +1,18 @@
 extends LevelBase
-## Capítulo 7 — O Saguão (enigma 7 original).
-## A e B descem juntos do sótão ao saguão. A porta do subterrâneo tem quatro
-## cadeados (I–IV), um por cômodo, e duas rodas que só giram juntas.
-##   Quarto (I):     VLOHQFLR na parede + "CÉSAR DISSE: +3" (cozinha) → armário SILENCIO.
-##   Cozinha (II):   dardos no vermelho 17 + 6 + 19 → despensa 42.
-##   Escritório (III): bilhete do travesseiro + carta do pai → piano C G A F.
-##   Banheiro (IV):  o espelho repete ACORDE → armário ACORDE.
+## Capítulo 7 — O Saguão (a casa da família de B; enigma 7 original).
+## A e B descem do sótão ao saguão da casa onde B cresceu. A porta do subterrâneo tem
+## quatro cadeados (I–IV), um por cômodo, e duas rodas que só giram juntas.
+##   Quarto (I):     o quarto de infância de B (foto de A e B crianças). VLOHQFLR na
+##                   parede + "CÉSAR DISSE: +3" (cozinha) → armário SILENCIO.
+##   Cozinha (II):   a cozinha da mãe de B. Dardos no vermelho 17 + 6 + 19 → despensa 42.
+##   Escritório (III): o piano do pai de B. Bilhete do travesseiro + carta → piano C G A F.
+##   Banheiro (IV):  o espelho repete ACORDE → armário ACORDE. Do espelho sai a voz falsa
+##                   de B pedindo para A não acordar; depois, B de verdade nega.
 ## Cada chave fica com quem a pegou; cada cadeado só abre com a sua chave.
+## Terror: com a primeira chave, todas as portas se abrem e o Esquecido passa a patrulhar
+## o saguão e os quatro cômodos (um esconderijo em cada cômodo e um no saguão). Cada
+## cadeado aberto muda o ponto seguro. Com os quatro, a patrulha some e quem segura uma
+## roda sozinho é caçado. Voz do hospital no primeiro cadeado. Lembrança m7 na banheira.
 ## Depois, um segura uma roda e o outro gira a outra.
 
 const ROMAN := ["", "I", "II", "III", "IV"]
@@ -32,7 +38,7 @@ const DOC_PAI := {
 	"id": "ch7_carta_pai",
 	"title": "Carta sobre a mesa",
 	"style": "paper",
-	"body": "[font_size=30]Meu pai me forçou a estudar de novo. Ele insiste em que eu seja um ótimo músico como ele. Mas eu não quero isso, não quero ser como ele. Todas as noites ele me força. Eu já decorei. Sonho com isso todas as noites.[/font_size]\n\n[center][font_size=34]C    D    E    F    G    A    B\nDÓ   RÉ   MI   FÁ   SOL  LÁ   SI[/font_size]\n\n[font_size=30]UT queant laxis\nREsonare fibris\nMIra gestorum\nFAmuli tuorum\nSOLve polluti\nLAbii reatum\nSancte Iohannes[/font_size][/center]",
+	"body": "[font_size=30]Meu pai me forçou a estudar de novo. Ele insiste que eu toque tão bem quanto ele. Mas eu não quero isso, não quero ser como ele. Todas as noites ele me força. Eu já decorei. Sonho com isso todas as noites.[/font_size]\n\n[center][font_size=34]C    D    E    F    G    A    B\nDÓ   RÉ   MI   FÁ   SOL  LÁ   SI[/font_size]\n\n[font_size=30]UT queant laxis\nREsonare fibris\nMIra gestorum\nFAmuli tuorum\nSOLve polluti\nLAbii reatum\nSancte Iohannes[/font_size][/center]",
 }
 
 var _room_doors := {}
@@ -60,6 +66,32 @@ var _anchors := {}
 var _amb_t := 7.0
 var _tick_t := 0.0
 var _skip_intro := false
+var _lustre_light: OmniLight3D
+## Luzes de cada cômodo (e do saguão, índice 0) que apagam quando alguém erra ali.
+var _room_lights := {0: [], 1: [], 2: [], 3: [], 4: []}
+var _patrol_started := false
+var _patrol_on := false
+var _chase_warned := false
+var _fake_pending := false
+
+## Rota do Esquecido: saguão → quarto → cozinha → pé da escada → banheiro → escritório.
+const PATROL := [
+	Vector3(0, 0, -7.8),
+	Vector3(-5.6, 0, -8.25), Vector3(-10.0, 0, -8.25), Vector3(-12.8, 0, -7.0),
+	Vector3(-10.0, 0, -8.25), Vector3(-5.6, 0, -8.25),
+	Vector3(-5.2, 0, -2.6),
+	Vector3(-5.6, 0, -0.75), Vector3(-9.0, 0, -0.75), Vector3(-13.4, 0, 1.0),
+	Vector3(-9.0, 0, -0.75), Vector3(-5.6, 0, -0.75),
+	Vector3(-3.0, 0, -5.5), Vector3(3.0, 0, -5.5),
+	Vector3(5.6, 0, -0.75), Vector3(10.2, 0, -0.75), Vector3(12.8, 0, 1.3),
+	Vector3(10.2, 0, -0.75), Vector3(5.6, 0, -0.75),
+	Vector3(5.2, 0, -5.4),
+	Vector3(5.6, 0, -8.25), Vector3(10.0, 0, -8.25), Vector3(12.0, 0, -9.6),
+	Vector3(10.0, 0, -8.25), Vector3(5.6, 0, -8.25),
+]
+const LANDING_A := Vector3(-0.8, 3.2, 1.7)
+const LANDING_B := Vector3(0.8, 3.2, 1.7)
+const TUB_MEMORY := Vector3(15.9, 0.0, -1.75)
 
 
 func _init() -> void:
@@ -84,6 +116,10 @@ func _build() -> void:
 	_build_office()
 	_build_bathroom()
 	_build_pit()
+	_build_hiding()
+	_build_dread()
+	memory(TUB_MEMORY, "m7", "Saia",
+		"\"SAIA!\"\n\n%s me empurrou pela janela quebrada. Eu subi. Eu respirei.\n\nOlhei para baixo. Os faróis ainda estavam acesos lá no fundo.\n\n%s não subiu." % [Game.name_b, Game.name_b])
 
 
 ## Parede reta com vãos. `gaps` = [[posição ao longo, largura, altura do vão], ...].
@@ -181,7 +217,7 @@ func _build_hall() -> void:
 		an.frames = 4
 		an.fps = 9
 		fl.add_child(an)
-	Build.omni(lustre, Vector3(0, -0.6, 0), Color("ffbf78"), 2.2, 13.0, true, true)
+	_lustre_light = Build.omni(lustre, Vector3(0, -0.6, 0), Color("ffbf78"), 2.2, 13.0, true, true)
 	var sway := create_tween().set_loops()
 	sway.tween_property(lustre, "rotation_degrees:z", 1.2, 3.2).set_trans(Tween.TRANS_SINE)
 	sway.tween_property(lustre, "rotation_degrees:z", -1.2, 3.2).set_trans(Tween.TRANS_SINE)
@@ -191,7 +227,7 @@ func _build_hall() -> void:
 	win.rotation_degrees.x = 90
 	Build.box(geo, Vector3(1.1, 0.05, 0.08), Vector3(0, 4.25, -11.8), wood, false)
 	Build.box(geo, Vector3(0.05, 1.1, 0.08), Vector3(0, 4.25, -11.8), wood, false)
-	Build.spot(geo, Vector3(0, 4.4, -11.4), Vector3(0, 0, -7.5), Color("7f9ee0"), 2.2, 9.0, 22.0, false)
+	_room_lights[0].append(Build.spot(geo, Vector3(0, 4.4, -11.4), Vector3(0, 0, -7.5), Color("7f9ee0"), 2.2, 9.0, 22.0, false))
 
 	# Quadros e mesinhas com velas ao norte.
 	_painting(Vector3(-5.1, 2.7, -11.8), 0.0, Vector2(1.2, 1.5), Color("1d2430"), "landscape")
@@ -201,7 +237,7 @@ func _build_hall() -> void:
 		for lx in [-0.45, 0.45]:
 			Build.box(geo, Vector3(0.06, 0.8, 0.06), Vector3(x + lx, 0.4, -11.55), wood, false)
 		Build.blocker(geo, Vector3(1.1, 1, 0.5), Vector3(x, 0.5, -11.55))
-		Build.candle(geo, Vector3(x - 0.25, 0.88, -11.55), 0.7, 3.5)
+		_room_lights[0].append(_light_of(Build.candle(geo, Vector3(x - 0.25, 0.88, -11.55), 0.7, 3.5)))
 	# Quadros nas paredes laterais, entre as portas.
 	_painting(Vector3(-6.83, 2.6, -4.5), 90.0, Vector2(1.0, 1.3), Color("20283a"), "portrait")
 	_painting(Vector3(6.83, 2.6, -4.5), -90.0, Vector2(1.0, 1.3), Color("22301f"), "landscape")
@@ -222,7 +258,7 @@ func _build_hall() -> void:
 	_anchors["clock"] = clock
 
 	# Plantas mortas nos cantos da frente e teias no alto.
-	for p in [Vector3(-6.2, 0, 2.2), Vector3(6.2, 0, 2.2), Vector3(-6.2, 0, -10.6), Vector3(6.2, 0, -10.6)]:
+	for p in [Vector3(-6.2, 0, 2.2), Vector3(6.2, 0, 2.2), Vector3(-6.3, 0, -6.4), Vector3(6.2, 0, -10.6)]:
 		Build.cylinder(geo, 0.25, 0.5, p + Vector3(0, 0.25, 0), Build.mat("brick", Color(0.7, 0.6, 0.55), 1.0), true, 10)
 		Build.billboard(geo, "fern", p + Vector3(0, 0.45, 0), 0.03, 1, 0, Color(0.55, 0.5, 0.4))
 	for p in [Vector3(-6.6, 5.2, -11.6), Vector3(6.6, 5.2, -11.6)]:
@@ -417,7 +453,7 @@ func _build_bedroom() -> void:
 	}, "Olhar sob o travesseiro", "any", 1.1)
 	# Criado-mudo com vela.
 	Build.box(geo, Vector3(0.5, 0.6, 0.5), Vector3(-13.2, 0.3, -11.6), wood, true)
-	Build.candle(geo, Vector3(-13.2, 0.6, -11.6), 0.8, 4.5)
+	_room_lights[1].append(_light_of(Build.candle(geo, Vector3(-13.2, 0.6, -11.6), 0.8, 4.5)))
 	# Escrito na parede.
 	var txt := Build.text3d(geo, "VLOHQFLR", Vector3(-11.2, 1.75, -11.83), 0.0, 110, Color("9a1016"), UiTheme.FONT_HAND, 0.006)
 	txt.shaded = false
@@ -452,10 +488,11 @@ func _build_bedroom() -> void:
 	_anchors["window"] = wa
 	# Brinquedos, sangue e teias.
 	Build.sphere(geo, 0.14, Vector3(-11.0, 0.14, -6.4), Build.color_mat(Color("7a2a2a")))
-	Build.box(geo, Vector3(0.3, 0.3, 0.3), Vector3(-15.8, 0.15, -5.6), Build.mat("wood_wall", Color(0.9, 0.8, 0.6), 0.5), true, 25.0)
+	Build.box(geo, Vector3(0.3, 0.3, 0.3), Vector3(-14.6, 0.15, -5.2), Build.mat("wood_wall", Color(0.9, 0.8, 0.6), 0.5), true, 25.0)
 	_blood(Vector3(-13.0, 0.025, -9.3), Vector3(-90, 40, 0), 0.0011)
 	Build.billboard(geo, "cobweb", Vector3(-16.5, 2.9, -11.6), 0.04, 1, 0, Color(0.8, 0.8, 0.85))
-	Build.omni(geo, Vector3(-11.5, 2.6, -7.5), Color("8a9cc8"), 0.5, 7.0)
+	_room_lights[1].append(Build.omni(geo, Vector3(-11.5, 2.6, -7.5), Color("8a9cc8"), 0.5, 7.0))
+	_build_photo()
 
 
 func _build_kitchen() -> void:
@@ -496,7 +533,7 @@ func _build_kitchen() -> void:
 		Build.box(geo, Vector3(0.45, 0.45, 0.45), Vector3(cx, 0.225, -1.75), wood, false)
 		Build.box(geo, Vector3(0.45, 0.6, 0.05), Vector3(cx, 0.75, -1.97), wood, false)
 	Build.box(geo, Vector3(0.3, 0.01, 0.22), Vector3(-11.7, 0.845, -0.9), Build.color_mat(Color("d8cfb0")), false)
-	Build.candle(geo, Vector3(-12.4, 0.84, -1.1), 0.8, 4.5)
+	_room_lights[2].append(_light_of(Build.candle(geo, Vector3(-12.4, 0.84, -1.1), 0.8, 4.5)))
 	doc(Vector3(-11.7, 0.9, -0.9), {
 		"id": "ch7_mamae",
 		"title": "Bilhete na mesa da cozinha",
@@ -529,7 +566,7 @@ func _build_kitchen() -> void:
 	# Lâmpada nua sobre a mesa.
 	Build.box(geo, Vector3(0.02, 0.8, 0.02), Vector3(-12.0, 3.1, -1.0), Build.color_mat(Color("111111")), false)
 	Build.sphere(geo, 0.08, Vector3(-12.0, 2.65, -1.0), Build.color_mat(Color("ffd9a0"), 2.0))
-	Build.omni(geo, Vector3(-12.0, 2.5, -1.0), Color("ffcf8a"), 0.9, 7.0, false, true)
+	_room_lights[2].append(Build.omni(geo, Vector3(-12.0, 2.5, -1.0), Color("ffcf8a"), 0.9, 7.0, false, true))
 	Build.billboard(geo, "cobweb", Vector3(-16.5, 2.9, 2.5), 0.04, 1, 0, Color(0.8, 0.8, 0.85))
 
 
@@ -547,7 +584,7 @@ func _build_office() -> void:
 	Build.box(geo, Vector3(0.9, 0.45, 0.4), Vector3(12.5, 0.225, -10.45), dark_wood, false)
 	Build.box(geo, Vector3(0.5, 0.4, 0.02), Vector3(12.5, 1.1, -11.24), Build.color_mat(Color("d8cfb0")), false)
 	for cx in [11.9, 13.1]:
-		Build.candle(geo, Vector3(cx, 1.3, -11.55), 0.6, 4.0)
+		_room_lights[3].append(_light_of(Build.candle(geo, Vector3(cx, 1.3, -11.55), 0.6, 4.0)))
 	_blood(Vector3(12.9, 0.84, -11.08), Vector3(-90, 0, 0), 0.0003)
 	_piano_it = interact(Vector3(12.5, 1.0, -10.4), "Tocar o piano", _piano, "any", 1.1)
 	# Retrato do pai acima do piano.
@@ -576,7 +613,7 @@ func _build_office() -> void:
 				Build.box(geo, Vector3(0.05, hh, w), Vector3(16.33, y + hh / 2.0, zz + w / 2.0), Build.color_mat(col), false)
 				zz += w + 0.01
 	Build.box(geo, Vector3(1.4, 2.4, 0.5), Vector3(8.2, 1.2, -11.6), wood, true)
-	Build.omni(geo, Vector3(12.0, 2.6, -7.5), Color("c9a878"), 0.45, 7.0)
+	_room_lights[3].append(Build.omni(geo, Vector3(12.0, 2.6, -7.5), Color("c9a878"), 0.45, 7.0))
 	Build.billboard(geo, "cobweb", Vector3(16.5, 2.9, -11.6), 0.04, 1, 0, Color(0.8, 0.8, 0.85))
 
 
@@ -633,6 +670,99 @@ func _build_bathroom() -> void:
 	Build.motes(geo, Vector3(12, 1.5, -0.8), Vector3(4, 1.5, 3), 30, Color(0.8, 0.9, 1.0, 0.35), "fog", 0.4)
 
 
+## Luz de uma vela/tocha montada pelo Build (a OmniLight3D filha).
+func _light_of(root: Node3D) -> OmniLight3D:
+	for c in root.get_children():
+		if c is OmniLight3D:
+			return c
+	return null
+
+
+## Foto de A e B crianças na parede oeste do quarto (o quarto de infância de B).
+func _build_photo() -> void:
+	var root := Node3D.new()
+	root.position = Vector3(-16.8, 1.65, -10.3)
+	root.rotation_degrees.y = 90.0
+	geo.add_child(root)
+	Build.box(root, Vector3(0.62, 0.5, 0.04), Vector3.ZERO, Build.color_mat(Color("5a4320"), 0.0, 0.5), false)
+	Build.box(root, Vector3(0.52, 0.4, 0.045), Vector3(0, 0, 0.004), Build.color_mat(Color("b59c78")), false)
+	Build.box(root, Vector3(0.52, 0.14, 0.047), Vector3(0, -0.13, 0.005), Build.color_mat(Color("6d7a4a")), false)
+	var tex := Build.sprite_tex("char_a")
+	for k in 2:
+		var s := Sprite3D.new()
+		s.texture = Build.sprite_tex("char_a" if k == 0 else "char_b")
+		if s.texture == null:
+			s.texture = tex
+		s.hframes = 4
+		s.vframes = 5
+		s.frame = 0
+		s.pixel_size = 0.0068
+		s.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		s.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+		s.shaded = true
+		s.modulate = Color(1.0, 0.86, 0.66)
+		s.position = Vector3(-0.09 + k * 0.18, -0.02, 0.03)
+		root.add_child(s)
+	# Um risco de sangue atravessa o vidro.
+	var cut := Build.box(root, Vector3(0.5, 0.012, 0.05), Vector3(0.02, 0.05, 0.01), Build.color_mat(Color("6a0a0e")), false)
+	cut.rotation_degrees.z = -24.0
+	doc(Vector3(-16.1, 1.0, -10.3), {
+		"id": "ch7_foto",
+		"title": "Foto na parede do quarto",
+		"style": "paper",
+		"body": "Duas crianças na frente desta casa, de mãos dadas, rindo de alguma coisa fora da foto. Uma está sem os dentes da frente.\n\nAtrás, na letra da mãe de %s:\n\n[center][i]\"%s e %s. Não se soltam por nada.\"[/i][/center]\n\nAlguém passou o dedo sujo de sangue no vidro, bem no meio das duas." % [Game.name_b, Game.name_a, Game.name_b],
+	}, "Olhar a foto", "any", 1.1)
+
+
+## Esconderijos: um em cada cômodo e um no saguão.
+func _build_hiding() -> void:
+	var wood := Build.mat("planks_dark", Color(0.85, 0.75, 0.65), 1.0)
+	var door_m := Build.mat("planks_dark", Color(1, 0.9, 0.8), 0.8)
+	var knob := Build.color_mat(Color("8a7a50"), 0.0, 0.3)
+	var curtain := Build.mat("curtain", Color(0.55, 0.42, 0.45), 1.0)
+	# Saguão: armário de casacos na parede oeste, perto da porta de ferro.
+	Build.box(geo, Vector3(0.7, 2.4, 1.3), Vector3(-6.5, 1.2, -10.6), wood, true)
+	Build.box(geo, Vector3(0.04, 2.2, 0.6), Vector3(-6.13, 1.15, -10.92), door_m, false)
+	Build.box(geo, Vector3(0.04, 2.2, 0.6), Vector3(-6.13, 1.15, -10.28), door_m, false)
+	Build.box(geo, Vector3(0.05, 0.2, 0.06), Vector3(-6.1, 1.2, -10.6), knob, false)
+	hide_spot(Vector3(-5.8, 0, -10.6), "Esconder-se no armário de casacos")
+	# Quarto: o guarda-roupa de criança de B, na parede oeste.
+	Build.box(geo, Vector3(0.7, 2.2, 1.4), Vector3(-16.45, 1.1, -6.0), wood, true)
+	Build.box(geo, Vector3(0.04, 2.0, 0.66), Vector3(-16.08, 1.1, -6.34), door_m, false)
+	Build.box(geo, Vector3(0.04, 2.0, 0.66), Vector3(-16.08, 1.1, -5.66), door_m, false)
+	Build.box(geo, Vector3(0.05, 0.18, 0.06), Vector3(-16.05, 1.15, -6.0), knob, false)
+	hide_spot(Vector3(-15.6, 0, -6.0), "Esconder-se no guarda-roupa")
+	# Cozinha: debaixo da mesa (lado oeste, longe do bilhete).
+	hide_spot(Vector3(-13.2, 0, -1.0), "Esconder-se debaixo da mesa")
+	# Escritório: cortina pesada da janela leste.
+	Build.box(geo, Vector3(0.06, 1.4, 1.0), Vector3(16.84, 1.9, -6.0), Build.color_mat(Color("6d8fd0"), 0.5), false)
+	Build.box(geo, Vector3(0.1, 0.06, 1.8), Vector3(16.7, 3.05, -6.0), Build.color_mat(Color("2a1c12"), 0.0, 0.5), false)
+	for cz in [-6.45, -5.55]:
+		Build.box(geo, Vector3(0.16, 3.0, 0.8), Vector3(16.68, 1.5, cz), curtain, false)
+	hide_spot(Vector3(16.25, 0, -6.0), "Esconder-se atrás da cortina")
+	# Banheiro: cortina da banheira.
+	Build.box(geo, Vector3(0.04, 0.04, 2.2), Vector3(15.4, 2.1, -1.0), Build.mat("metal"), false)
+	# Cortina puxada para o pé da banheira.
+	for k in 3:
+		Build.box(geo, Vector3(0.07, 1.6, 0.14), Vector3(15.4 + (k % 2) * 0.05, 1.28, -0.08 + k * 0.1), Build.mat("curtain", Color(0.72, 0.78, 0.8), 1.0), false)
+	hide_spot(Vector3(15.0, 0, -0.35), "Esconder-se atrás da cortina da banheira")
+
+
+## Luzes que apagam quando alguém erra um enigma (a do cômodo do erro primeiro).
+func _build_dread() -> void:
+	_room_lights[4].append(_bath_light)
+	_room_lights[4].append(Build.omni(geo, Vector3(16.2, 2.2, 1.7), Color("9fb8c8"), 0.45, 4.0))
+	for n in [1, 2, 3, 4, 0]:
+		for l in _room_lights[n]:
+			if l:
+				dread_light(l, str(n))
+
+
+## Põe as luzes do cômodo `n` na frente da fila de luzes que o erro apaga.
+func _dread_first(n: int) -> void:
+	dread_focus(str(n))
+
+
 func _build_pit() -> void:
 	var stone := Build.mat("dungeon_stone", Color(0.8, 0.75, 0.75), 1.5)
 	Build.stairs(geo, Vector3(0, -3.2, -17.2), Vector3(0, 0, -12.0), 2.6, 10, stone)
@@ -654,11 +784,13 @@ func _begin() -> void:
 		return
 	await say([
 		"Vocês se encontram novamente. Se separar pode ser perigoso.",
-		"b: %s! A sua escada também descia para cá?" % Game.name_a,
-		"a: Descia. E a porta lá em cima fechou sozinha atrás de mim.",
-		"b: Lá embaixo... um saguão enorme. Tem uma porta de ferro acorrentada.",
-		"a: E quatro portas em volta. Cada uma com um número.",
-		"b: Fica perto de mim desta vez.",
+		"b: %s. A sua escada também descia para cá?" % Game.name_a,
+		"a: Descia. E a porta lá de cima bateu atrás de mim.",
+		"b: ...Eu conheço esse lustre. Esse tapete. Esse relógio.",
+		"a: Conhece de onde?",
+		"b: É a casa da minha família. Eu cresci aqui.",
+		"b: Só que aquela porta de ferro nunca existiu. Nem as correntes.",
+		"a: Fica perto de mim.",
 	])
 	objective("Desçam a escadaria até o saguão.")
 	hints([
@@ -696,13 +828,20 @@ func _update_objective() -> void:
 
 
 func _enter_room(ch: Character, n: int) -> void:
-	var lines := {
-		1: "Um quarto de criança. Alguém escreveu na parede... em vermelho.",
-		2: "Cheiro de ferrugem. E de alguma coisa podre na despensa.",
-		3: "Um piano. O retrato em cima dele não tem olhos.",
-		4: "O espelho está todo embaçado. Mas a água da banheira está fria.",
+	var nb := Game.name_b
+	var lines_b := {
+		1: ["b: O meu quarto. De quando eu era criança.", "b: Quem escreveu na minha parede?"],
+		2: ["b: A cozinha da minha mãe. Ela contava tudo nesta casa. Até os dardos."],
+		3: ["b: O piano do meu pai. Todas as noites, as mesmas notas.", "b: O retrato... não era assim. Ele tinha olhos."],
+		4: ["b: A banheira está cheia. Ninguém enche essa banheira há anos.", "b: E a água está vermelha."],
 	}
-	await say([ch.who + ": " + lines[n]])
+	var lines_a := {
+		1: ["a: O quarto de %s. Igual a quando a gente brincava aqui." % nb, "a: Só que alguém escreveu na parede. Em vermelho."],
+		2: ["a: A cozinha da mãe de %s. Cheiro de ferrugem." % nb, "a: E de alguma coisa podre na despensa."],
+		3: ["a: O escritório do pai de %s. O retrato em cima do piano não tem olhos." % nb],
+		4: ["a: O espelho está todo embaçado. A água da banheira está fria.", "a: Fria como o rio."],
+	}
+	await say(lines_b[n] if ch.who == "b" else lines_a[n])
 
 
 func _open_room(_ch: Character, n: int) -> void:
@@ -724,11 +863,13 @@ func _wardrobe(ch: Character) -> void:
 		])
 	lock.max_len = 8
 	lock.placeholder = "8 letras"
+	_dread_first(1)
 	if await puzzle(lock):
 		_wardrobe_it.disable()
 		_swing(_wardrobe_door, "rotation_degrees:y", 110.0)
 		_key_fx(Vector3(-8.7, 1.4, -10.9))
-		await _give_key(ch, 1, "Entre roupas pequenas demais para mim... uma chave com o número I.")
+		var line := "As minhas roupas de criança... e uma chave com o número I." if ch.who == "b" else "Roupas de criança de %s. E, no meio delas, uma chave com o número I." % Game.name_b
+		await _give_key(ch, 1, line)
 
 
 func _pantry(ch: Character) -> void:
@@ -741,6 +882,7 @@ func _pantry(ch: Character) -> void:
 	lock.keypad = "0123456789"
 	lock.max_len = 3
 	lock.placeholder = "número"
+	_dread_first(2)
 	if await puzzle(lock):
 		_pantry_it.disable()
 		_swing(_pantry_door, "rotation_degrees:y", -105.0)
@@ -761,6 +903,7 @@ func _piano(ch: Character) -> void:
 			"O bilhete sob o travesseiro do quarto tem palavras com maiúscula fora do lugar: Dó, Sol, Lá, Fa.",
 			"Toque C, G, A, F.",
 		])
+	_dread_first(3)
 	if await puzzle(p):
 		_piano_it.disable()
 		Audio.sfx("key_pickup", -8.0)
@@ -785,6 +928,7 @@ func _cabinet(ch: Character) -> void:
 		])
 	lock.max_len = 6
 	lock.placeholder = "6 letras"
+	_dread_first(4)
 	if await puzzle(lock):
 		_cabinet_it.disable()
 		_swing(_cabinet_door, "rotation_degrees:y", 100.0)
@@ -820,30 +964,62 @@ func _give_key(ch: Character, n: int, line: String) -> void:
 	Ui.toast("%s pegou a chave %s." % [Game.char_name(ch.who), ROMAN[n]])
 	_update_objective()
 	await say([ch.who + ": " + line])
+	if not _patrol_started:
+		await _wake_forgotten(ch)
 
 
-## Susto discreto (uma vez): um vulto na porta do banheiro, logo depois do espelho.
+## Susto (uma vez), depois do espelho: a voz que imita B pede para A não acordar e,
+## por um instante, o Esquecido aparece na porta do banheiro.
 func _scare(ch: Character) -> void:
 	Game.lock_input()
-	var m := Build.billboard(geo, "monster", Vector3(8.1, 0, -0.75), 0.018, 2, 0, Color(0.35, 0.35, 0.42))
+	var m := Build.billboard(geo, "forgotten", Vector3(8.1, 0, -0.75), 0.029, 4, 0, Color(0.6, 0.58, 0.66))
+	m.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+	m.offset = Vector2(0, 40)
 	m.visible = false
 	Audio.sfx("heartbeat", -8.0)
-	await get_tree().create_timer(0.5).timeout
+	Audio.sfx("glass_squeak", -6.0, 0.7)
+	await get_tree().create_timer(0.6).timeout
+	var fake: Array = [
+		"O vapor do espelho se mexe sozinho. Uma voz sai lá de dentro.",
+		"x: %s. Não precisa acordar." % Game.name_a,
+		"x: Fica aqui comigo. Dorme mais um pouco. Lá fora dói.",
+	]
+	if ch.who == "a":
+		fake.append("a: %s? De onde você está falando?" % Game.name_b)
+	else:
+		fake.append("b: ...essa é a minha voz. Eu não disse isso.")
+		fake.append("b: Eu nunca pediria isso a %s." % Game.name_a)
+	await say(fake)
 	_bath_light.visible = false
+	Audio.sfx("light_out", -8.0)
 	await get_tree().create_timer(0.15).timeout
 	_bath_light.visible = true
 	m.visible = true
+	Audio.sfx("dread_sting", -4.0)
 	Audio.sfx("breath", -4.0)
 	cam.shake(0.15)
-	await get_tree().create_timer(0.55).timeout
+	await get_tree().create_timer(0.6).timeout
 	_bath_light.visible = false
 	await get_tree().create_timer(0.12).timeout
 	m.queue_free()
 	_bath_light.visible = true
 	Game.unlock_input()
 	await say([
-		ch.who + ": ...tinha alguém na porta?",
-		ch.who + ": Não. Não tinha ninguém. Foco.",
+		ch.who + ": ...tinha alguém na porta. Com a mão no rosto.",
+		ch.who + ": Não. Não tem ninguém. Foco.",
+	])
+	# A voz falsa falou com A: B desmente quando os dois se encontrarem.
+	_fake_pending = ch.who == "a"
+
+
+## B de verdade nega ter falado pelo espelho (quando A e B ficam perto de novo).
+func _deny_fake() -> void:
+	_fake_pending = false
+	await say([
+		"a: %s. Você falou comigo pelo espelho do banheiro?" % Game.name_b,
+		"b: Espelho? Eu não falei nada. Nem passei perto do banheiro.",
+		"a: Era a sua voz. Pedindo para eu não acordar.",
+		"b: Então não era eu. Eu nunca te pediria isso. Nunca.",
 	])
 
 
@@ -872,11 +1048,16 @@ func _try_lock(ch: Character, n: int) -> void:
 	t.tween_property(lock, "position:z", -11.35, 0.5)
 	t.tween_property(lock, "rotation_degrees:x", -88.0, 0.5)
 	_update_objective()
+	# Ponto seguro: diante da porta de ferro (a patrulha recomeça longe daqui).
+	set_checkpoint(Vector3(-1.3, 0, -10.3), Vector3(1.3, 0, -10.3))
+	if _locks_open == 1:
+		bleed(["Leito %d teve uma parada às três. Conseguimos reverter." % Game.number_b])
 	if _locks_open < 4:
 		Ui.toast("Cadeado %s aberto. (%d/4)" % [ROMAN[n], _locks_open])
 		return
 	_busy_scene = true
 	await t.finished
+	await _stop_patrol()
 	await get_tree().create_timer(0.4).timeout
 	Audio.sfx("chain_rattle", -2.0)
 	var tc := create_tween().set_parallel()
@@ -885,16 +1066,22 @@ func _try_lock(ch: Character, n: int) -> void:
 	cam.shake(0.25)
 	await tc.finished
 	_busy_scene = false
-	await say([
+	var chain_lines := [
 		ch.who + ": As correntes caíram. Mas a porta continua presa.",
 		ch.who + ": As rodas dos lados... devem puxar as trancas. Mas estão longe demais uma da outra.",
-	])
+	]
+	if _patrol_started:
+		chain_lines.append("b: E os passos pararam. Aquilo sumiu.")
+		chain_lines.append("a: Ou está esperando alguém ficar parado.")
+	await say(chain_lines)
 	_update_objective()
 	hints([
 		"As duas rodas precisam girar ao mesmo tempo. Uma pessoa só não alcança as duas.",
-		"Um de vocês segura uma roda enquanto o outro gira a outra.",
+		"Um de vocês segura uma roda enquanto o outro gira a outra. Não demorem: quem fica parado na roda sem ninguém por perto é caçado.",
 		"Interaja com uma roda para segurá-la, troque de personagem e gire a roda do outro lado.",
 	])
+	# Quem segura uma roda sozinho, esperando, é caçado.
+	lonely_watch(_wheel_victim, 30.0, _wheel_caught)
 
 
 func _wobble(n: Node3D) -> void:
@@ -949,8 +1136,12 @@ func _release(side: String) -> void:
 	(w["it"] as Interactable).prompt = "Girar a roda"
 
 
-func _physics_process(_delta: float) -> void:
-	if _gate_open or _busy_scene or party == null:
+func _physics_process(delta: float) -> void:
+	super(delta)
+	if party == null or _finishing:
+		return
+	_watch_patrol()
+	if _gate_open or _busy_scene:
 		return
 	for side in _wheels:
 		var w: Dictionary = _wheels[side]
@@ -963,10 +1154,37 @@ func _physics_process(_delta: float) -> void:
 			Ui.toast("%s soltou a roda." % Game.char_name(c.who))
 
 
+## Quem segura uma roda enquanto a outra está livre (fica parado, esperando).
+func _wheel_victim() -> Variant:
+	if _gate_open or _busy_scene:
+		return null
+	var held := []
+	for side in _wheels:
+		if _wheels[side]["holder"] != "":
+			held.append(_wheels[side]["holder"])
+	if held.size() == 1:
+		return party.get_char(held[0])
+	return null
+
+
+## O Esquecido alcançou quem segurava a roda: a roda escapa e a vítima recua.
+func _wheel_caught(ch: Character) -> void:
+	for side in _wheels:
+		if _wheels[side]["holder"] == ch.who:
+			_release(side)
+			var spin: Node3D = _wheels[side]["spin"]
+			create_tween().tween_property(spin, "rotation:z", 0.0, 0.4).set_trans(Tween.TRANS_BOUNCE)
+	ch.teleport(ch.global_position + Vector3(0, 0, 1.4))
+
+
 func _turn_both(ch: Character, side: String) -> void:
 	_gate_open = true
 	_busy_scene = true
 	Game.lock_input()
+	stop_lonely_watch()
+	_patrol_on = false
+	if stalker and stalker.is_active():
+		stalker.vanish(0.4)
 	await ch.walk_to(Vector3(_wheels[side]["x"], 0, WHEEL_STAND_Z))
 	ch.face("up")
 	for s in _wheels:
@@ -989,24 +1207,133 @@ func _turn_both(ch: Character, side: String) -> void:
 	Audio.sfx("wind_gust", -4.0)
 	cam.shake(0.4)
 	await get_tree().create_timer(2.6).timeout
-	Audio.sfx("monster_growl", -16.0)
+	Audio.sfx_at("whisper_saia", _pit_light, -2.0, 30.0)
 	for s in _wheels:
 		_wheels[s]["holder"] = ""
 	cam.target = party.active
 	Game.unlock_input()
 	_busy_scene = false
 	await say([
-		"b: Abriu... tem uma escada descendo.",
-		"a: Está gelado. E tem uma luz vermelha lá no fundo.",
-		"b: Você ouviu isso?",
-		"a: Ouvi. Vamos juntos. Sem se separar.",
+		"b: Abriu. Tem uma escada descendo.",
+		"a: Está gelado lá embaixo. E tem uma luz vermelha no fundo.",
+		"?: ...SAIA!",
+		"a: Essa voz... é a sua, %s." % Game.name_b,
+		"b: Eu sei. Eu não lembro de ter gritado isso. Nunca.",
+		"b: Vem. A gente desce lado a lado.",
 	])
-	objective("Desçam juntos ao subterrâneo.")
+	objective("Desçam ao subterrâneo, lado a lado.")
 	hints([
 		"A escada do subterrâneo fica atrás da porta de ferro, ao norte.",
-		"Os dois precisam descer juntos.",
+		"Ninguém desce só: %s e %s precisam chegar à escada." % [Game.name_a, Game.name_b],
 		"Leve %s e %s até a escada atrás da porta." % [Game.name_a, Game.name_b],
 	])
+
+
+# --- O Esquecido -------------------------------------------------------------------
+
+## Primeira chave: todas as portas se abrem e o Esquecido começa a andar pela casa.
+func _wake_forgotten(_ch: Character) -> void:
+	_patrol_started = true
+	Game.lock_input()
+	var s := spawn_stalker()
+	s.sight = 7.0
+	set_checkpoint(LANDING_A, LANDING_B)
+	# O lustre apaga; as quatro portas batem abertas de uma vez.
+	_lustre_light.visible = false
+	Audio.sfx("light_out", -2.0)
+	Audio.sfx("chain_rattle", -2.0)
+	await get_tree().create_timer(0.5).timeout
+	for n in _room_doors:
+		(_room_its[n] as Interactable).disable()
+		var door: Door = _room_doors[n]
+		if not door.is_open:
+			door.open(100.0, 0.35)
+	cam.shake(0.5)
+	s.appear(Vector3(0, 0, -10.6), 0.0)
+	await get_tree().create_timer(0.7).timeout
+	_lustre_light.visible = true
+	Audio.sfx("dread_sting", -2.0)
+	await cam.look_at_point(Vector3(0, 1.4, -10.2), 1.0)
+	await say([
+		"Todas as portas da casa se abrem ao mesmo tempo.",
+		"Diante da porta de ferro, alguém. Alto. Encharcado. A mão cobrindo o rosto.",
+		"b: Esse moletom... é igual ao seu, %s." % Game.name_a,
+		"a: Está andando. Está vindo para dentro da casa.",
+		"b: Esconde. Armário, cortina, debaixo da mesa. Qualquer lugar.",
+		"a: E se aquilo achar a gente?",
+		"b: Corre.",
+	])
+	cam.target = party.active
+	# Ninguém é pego de graça: se alguém está perto da porta, aquilo recomeça longe.
+	var near := false
+	for c in [party.a, party.b]:
+		if c.global_position.distance_to(s.global_position) < 8.0:
+			near = true
+	if near:
+		await s.vanish(0.5)
+		s.patrol(PATROL, _far_index([party.a.global_position, party.b.global_position]))
+	else:
+		s.patrol(PATROL, 0)
+	_patrol_on = true
+	Game.unlock_input()
+	Ui.toast("Aquilo patrulha a casa. Escondam-se (%s) quando passar." % Ui.key_label("interact"), UiTheme.BLOOD)
+	hints([
+		"Aquilo anda pelo saguão e entra nos cômodos. Só enxerga para a frente, paredes bloqueiam a visão e, correndo, dá para fugir.",
+		"Cada cômodo tem um esconderijo: o guarda-roupa do quarto, debaixo da mesa da cozinha, a cortina do escritório, a cortina da banheira. No saguão, o armário de casacos perto da porta de ferro.",
+		"Esconda também quem não está jogando: parado no caminho, é alcançado. Cada chave abre o cadeado do mesmo número, e só quem a pegou pode usá-la.",
+	])
+
+
+## Ponto da rota mais longe de todos os pontos dados.
+func _far_index(points: Array) -> int:
+	var best := 0
+	var best_d := -1.0
+	for i in PATROL.size():
+		var d := INF
+		for p in points:
+			d = minf(d, Vector2(PATROL[i].x - p.x, PATROL[i].z - p.z).length())
+		if d > best_d:
+			best_d = d
+			best = i
+	return best
+
+
+func _stop_patrol() -> void:
+	_patrol_on = false
+	if stalker == null or not stalker.is_active():
+		return
+	Audio.sfx("whisper_many", -8.0)
+	await stalker.vanish(1.2)
+
+
+## Depois de alguém ser pego: a patrulha recomeça no ponto mais longe do ponto seguro.
+func _caught(_ch: Character) -> void:
+	if stalker == null:
+		return
+	if not _patrol_on:
+		stalker.vanish(0.0)
+		return
+	var i := _far_index([checkpoint_a, checkpoint_b])
+	stalker.global_position = PATROL[i]
+	stalker.patrol(PATROL, (i + 1) % PATROL.size())
+
+
+## Avisa quando aquilo enxerga quem está parado (o personagem que não está sendo
+## jogado) e faz B desmentir a voz do espelho.
+func _watch_patrol() -> void:
+	if not Game.can_control() or _catching:
+		return
+	if _fake_pending and party.a.global_position.distance_to(party.b.global_position) < 2.6:
+		_deny_fake()
+		return
+	if not _patrol_on or stalker == null:
+		return
+	if stalker.state == Stalker.CHASE and stalker.target != null and stalker.target != party.active:
+		if not _chase_warned:
+			_chase_warned = true
+			Ui.toast("Aquilo viu %s! [%s] troca e foge." % [Game.char_name(stalker.target.who), Ui.key_label("switch")], UiTheme.BLOOD)
+	elif stalker.state != Stalker.CHASE:
+		_chase_warned = false
 
 
 # --- Sons de ambiente --------------------------------------------------------------
@@ -1073,4 +1400,63 @@ func _debug_mirror() -> void:
 	_skip_intro = true
 	Ui.open_panel(MirrorView.new(MIRROR_WORDS))
 
+
+## Portas abertas e o Esquecido já patrulhando (sem a cena da primeira chave).
+func _debug_patrol() -> void:
+	_skip_intro = true
+	for n in _room_doors:
+		(_room_doors[n] as Door).open(100.0, 0.05)
+		(_room_its[n] as Interactable).disable()
+	var s := spawn_stalker()
+	s.sight = 7.0
+	_patrol_started = true
+	_patrol_on = true
+	s.patrol(PATROL, 0)
+
+
+## O Esquecido entrando no quarto, com A no saguão (captura de tela).
+func _debug_patrol_shot() -> void:
+	_debug_patrol()
+	stalker.hunting = false
+	stalker.walk_speed = 0.3
+	stalker.global_position = Vector3(-3.6, 0, -8.3)
+	stalker.patrol(PATROL, 1)
+	party.a.teleport(Vector3(0.6, 0, -6.4))
+	cam.snap()
+
+
+## Confere a rota: roda uma volta inteira sem perseguir ninguém e diz que pontos alcançou.
+func _debug_patrol_check() -> void:
+	_debug_patrol()
+	party.a.teleport(LANDING_A)
+	party.b.teleport(LANDING_B)
+	stalker.hunting = false
+	var best := []
+	for p in PATROL:
+		best.append(INF)
+	var t := 0.0
+	var moved := 0.0
+	var last := stalker.global_position
+	while t < 95.0:
+		await get_tree().physics_frame
+		var dt := get_physics_process_delta_time()
+		if Game.can_control():
+			t += dt
+		var p := stalker.global_position
+		moved += Vector2(p.x - last.x, p.z - last.z).length()
+		last = p
+		for i in PATROL.size():
+			best[i] = minf(best[i], Vector2(p.x - PATROL[i].x, p.z - PATROL[i].z).length())
+	var missed := []
+	for i in PATROL.size():
+		if best[i] > 0.5:
+			missed.append("%d(%.2f)" % [i, best[i]])
+	print("PATROL_CHECK andou %.1f m em %.0f s; y=%.2f; pontos não alcançados: %s" % [moved, t, stalker.global_position.y, str(missed)])
+
+
+func _debug_memory() -> void:
+	_skip_intro = true
+	party.activate("a", true)
+	party.a.teleport(Vector3(14.9, 0, -1.9))
+	cam.snap()
 

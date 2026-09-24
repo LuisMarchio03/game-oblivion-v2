@@ -1,11 +1,16 @@
 extends LevelBase
 ## Capítulo 8 — Ascendência.
 ## Parte 1 (masmorra): A e B descem por corredores paralelos, entre celas. As duas
-## placas diante das grades precisam de peso ao mesmo tempo. No salão, a esfinge
-## acorrentada pergunta: "quanto mais se tem, menos se vê?" → ESCURIDÃO.
-## As correntes se partem, tudo fica branco e B some.
+## placas diante das grades precisam de peso ao mesmo tempo; quem fica muito tempo
+## numa placa, com o outro longe, é caçado (lonely_watch). Uma cela aberta no corredor
+## de A guarda a lembrança m8. No salão, a esfinge acorrentada fala do que A fez ("Você
+## trouxe B até aqui. Como trouxe até a ponte.") e pergunta: "quanto mais se tem, menos
+## se vê?" → ESCURIDÃO. Cada erro apaga uma tocha do salão.
+## As correntes se partem, tudo fica branco e B some (voz do hospital: o leito de B entra
+## em falência, com a linha reta do monitor).
 ## Parte 2 (fase branca, no mesmo capítulo): só A. Três lembranças de B flutuam no
-## branco; com as três, abre-se uma porta de luz.
+## branco; a cada uma, o Esquecido aparece parado no branco, mais perto; na terceira,
+## logo atrás de A, e some quando A se mexe. Com as três, abre-se uma porta de luz.
 
 const ANSWERS := ["ESCURIDAO", "ESCURIDÃO", "ESCURO", "TREVAS", "BREU"]
 const RIDDLE := "\"O que é, o que é: quanto mais se tem, menos se vê?\""
@@ -16,7 +21,7 @@ const W := Vector3(80, 0, 0)
 
 const MEMORIES := [
 	{"pos": Vector3(-5.5, 0, -1.5), "line": "Lembra quando a gente prometeu não se perder?"},
-	{"pos": Vector3(5.5, 0, -5.0), "line": "Não é culpa sua."},
+	{"pos": Vector3(5.5, 0, -5.0), "line": "Eu te pedi para sair. Você saiu. Era isso que eu queria."},
 	{"pos": Vector3(-1.5, 0, -10.5), "line": "Acorda. Por favor, acorda."},
 ]
 
@@ -65,6 +70,12 @@ var _memory_its: Array[Interactable] = []
 var _light_door: Node3D
 var _drip_t := 2.0
 var _far_view := false
+var _ghost_from := Vector3.ZERO
+var _ghost_facing := ""
+var _ghost_near := 0.0
+var _ghost_t := 0.0
+var _ghost_on_move := false
+const CELL_MEMORY := Vector3(-10.1, 0, -8.2)
 const VIEW_NEAR := Vector3(0, 7.2, 8.6)
 const VIEW_FAR := Vector3(0, 8.6, 11.8)
 
@@ -106,7 +117,12 @@ func _build_dungeon() -> void:
 	for side in [-1.0, 1.0]:
 		var bx: float = side * 11.0
 		Build.box(D, Vector3(0.4, 3.6, 19.5), Vector3(bx, 1.8, 0.75), wall_m)
-		_bars(D, Vector3(side * 6.0, 0, -9.0), Vector3(side * 6.0, 0, 10.4), 3.2, iron)
+		if side < 0.0:
+			# A cela mais ao norte do lado de A ficou aberta.
+			_bars(D, Vector3(-6.0, 0, -9.0), Vector3(-6.0, 0, -6.15), 3.2, iron)
+			_bars(D, Vector3(-6.0, 0, -4.95), Vector3(-6.0, 0, 10.4), 3.2, iron)
+		else:
+			_bars(D, Vector3(side * 6.0, 0, -9.0), Vector3(side * 6.0, 0, 10.4), 3.2, iron)
 		for z in [-4.4, 0.8, 5.8]:
 			_bars(D, Vector3(side * 6.0, 0, z), Vector3(side * 10.8, 0, z), 3.2, iron)
 		# Parede norte das celas (fecha a frente do salão).
@@ -122,6 +138,7 @@ func _build_dungeon() -> void:
 		Build.billboard(D, "cobweb", Vector3(side * 10.4, 2.6, -8.4), 0.04)
 		Build.billboard(D, "cobweb", Vector3(side * 10.4, 2.6, 9.6), 0.035)
 	Build.billboard(D, "corpse", Vector3(-9.0, 0.02, -2.0), 0.035)
+	_build_open_cell(iron)
 	Build.cylinder(D, 0.25, 0.4, Vector3(9.8, 0.2, 3.0), Build.mat("planks_dark"), false)
 	Build.cylinder(D, 0.22, 0.5, Vector3(-10.0, 0.25, 6.8), Build.mat("rust_metal"), false)
 
@@ -151,8 +168,8 @@ func _build_dungeon() -> void:
 			Build.box(gate, Vector3(4.0, 0.09, 0.1), Vector3(0, y, 0), iron, false)
 		_gates.append(gate)
 		Build.box(D, Vector3(4.4, 0.5, 0.5), Vector3(x, 3.45, GATE_Z), wall_m, false)
-	Build.text3d(D, "JUNTOS, OU NUNCA", Vector3(-4, 3.45, GATE_Z + 0.27), 0.0, 36, Color("b8ad96"))
-	Build.text3d(D, "JUNTOS, OU NUNCA", Vector3(4, 3.45, GATE_Z + 0.27), 0.0, 36, Color("b8ad96"))
+	Build.text3d(D, "NINGUÉM PASSA SÓ", Vector3(-4, 3.45, GATE_Z + 0.27), 0.0, 36, Color("b8ad96"))
+	Build.text3d(D, "NINGUÉM PASSA SÓ", Vector3(4, 3.45, GATE_Z + 0.27), 0.0, 36, Color("b8ad96"))
 
 	# Pistas separadas: rabisco no lado de A, diário de prisioneiro no lado de B.
 	doc(Vector3(-5.6, 0.6, 3.0), {
@@ -196,10 +213,11 @@ func _build_dungeon() -> void:
 	for p in [Vector3(-6.0, 3.4, -24.95), Vector3(6.0, 3.4, -24.95), Vector3(-3.2, 0.32, -17.8), Vector3(3.2, 0.32, -17.8)]:
 		Build.sphere(D, 0.14, p, iron)
 	# Tochas, ossos e poças.
-	for x in [-9.0, -3.5, 3.5, 9.0]:
-		Build.torch(D, Vector3(x, 2.0, -24.8), 1.5, 7.0)
-	Build.torch(D, Vector3(-10.7, 2.0, -15.0), 1.2, 6.0)
-	Build.torch(D, Vector3(10.7, 2.0, -15.0), 1.2, 6.0)
+	# Tochas do salão: cada erro diante da esfinge apaga uma.
+	for x in [-3.5, 3.5, -9.0, 9.0]:
+		dread_light(_light_of(Build.torch(D, Vector3(x, 2.0, -24.8), 1.5, 7.0)))
+	dread_light(_light_of(Build.torch(D, Vector3(-10.7, 2.0, -15.0), 1.2, 6.0)))
+	dread_light(_light_of(Build.torch(D, Vector3(10.7, 2.0, -15.0), 1.2, 6.0)))
 	Build.billboard(D, "corpse", Vector3(-5.5, 0.02, -18.0), 0.03)
 	var corpse2 := Build.billboard(D, "corpse", Vector3(6.2, 0.02, -22.5), 0.03)
 	corpse2.flip_h = true
@@ -211,6 +229,35 @@ func _build_dungeon() -> void:
 	Build.motes(D, Vector3(0, 1.6, -8), Vector3(10, 1.5, 17), 70, Color(1.0, 0.8, 0.6, 0.5), "dust", 0.04)
 
 	interact(MONSTER + Vector3(0, 0, 2.6), "Encarar a criatura", _on_monster, "any", 2.4, true, 1.6)
+
+
+## Luz de uma tocha/vela montada pelo Build (a OmniLight3D filha).
+func _light_of(root: Node3D) -> OmniLight3D:
+	for c in root.get_children():
+		if c is OmniLight3D:
+			return c
+	return null
+
+
+## A porta de grade entreaberta da cela ao norte (lado de A) e, no canto escuro do
+## fundo, a lembrança m8: a margem do rio, depois.
+func _build_open_cell(iron: Material) -> void:
+	var D := _dungeon
+	var hinge := Node3D.new()
+	hinge.position = Vector3(-6.0, 0, -4.95)
+	hinge.rotation_degrees.y = 118.0
+	D.add_child(hinge)
+	for i in 5:
+		Build.box(hinge, Vector3(0.06, 3.0, 0.06), Vector3(0, 1.5, -0.1 - i * 0.24), iron, false)
+	for y in [0.15, 1.5, 2.9]:
+		Build.box(hinge, Vector3(0.08, 0.08, 1.15), Vector3(0, y, -0.55), iron, false)
+	# Lama e água no fundo da cela, como na margem.
+	Build.water(D, Rect2(-10.75, -8.75, 1.6, 1.2), 0.02)
+	for p in [Vector3(-10.6, 0, -7.4), Vector3(-9.4, 0, -8.6)]:
+		Build.billboard(D, "reeds", p, 0.03, 1, 0, Color(0.45, 0.5, 0.45))
+	Build.omni(D, Vector3(-9.8, 1.2, -7.8), Color("7f95c8"), 0.25, 3.0)
+	memory(CELL_MEMORY, "m8", "Depois",
+		"Na margem, gritei o nome de %s até a voz acabar.\n\nDepois eu decidi não lembrar.\n\nÉ mais fácil ter medo de um monstro do que de mim." % Game.name_b)
 
 
 ## Fileira de barras de ferro entre dois pontos do chão.
@@ -250,6 +297,7 @@ func _chain(parent: Node3D, a: Vector3, b: Vector3, breakable := true) -> void:
 
 func _process(delta: float) -> void:
 	if _white_phase:
+		_check_ghost(delta)
 		return
 	if party and party.active and cam.target == party.active:
 		var far := party.active.global_position.z < GATE_Z - 0.5
@@ -270,14 +318,17 @@ func _begin() -> void:
 		"b: %s? Estou do outro lado desta parede. Tem celas aqui." % Game.name_a,
 		"a: Aqui também. E correntes. Muitas correntes.",
 		"Algo grande se arrasta mais à frente. Metal raspando pedra.",
-		"b: Seja o que for, a gente enfrenta junto.",
+		"b: Fala comigo enquanto anda. Assim eu sei que você ainda está aí.",
+		"a: Estou aqui. Não para de falar também.",
 	])
 	objective("Sigam pelos corredores até as grades ao norte.")
 	hints([
 		"Há uma placa no chão diante de cada grade.",
 		"As duas placas precisam de peso ao mesmo tempo: uma para cada um.",
-		"Deixe %s sobre uma placa, troque de personagem e pise na outra." % Game.name_b,
+		"Deixe %s sobre uma placa, troque de personagem e pise na outra. Rápido: quem fica numa placa com o outro longe é caçado." % Game.name_b,
 	])
+	# Quem fica numa placa, com o outro longe, é caçado.
+	lonely_watch(_plate_victim, 40.0, _plate_caught)
 
 
 func _on_plate(_pressed: bool) -> void:
@@ -291,8 +342,26 @@ func _on_plate(_pressed: bool) -> void:
 		Ui.toast("A placa afunda, mas a grade não se move.")
 
 
+## Quem está numa placa enquanto a outra está vazia (esperando, com o outro longe).
+func _plate_victim() -> Variant:
+	if _gates_open or _plate_a.pressed == _plate_b.pressed:
+		return null
+	var p := _plate_a if _plate_a.pressed else _plate_b
+	for ch in [party.a, party.b]:
+		var d := Vector2(ch.global_position.x - p.global_position.x, ch.global_position.z - p.global_position.z).length()
+		if d < 1.0 and party.other(ch).global_position.distance_to(p.global_position) > 5.0:
+			return ch
+	return null
+
+
+## O Esquecido alcançou quem esperava na placa: a vítima recua e a placa sobe.
+func _plate_caught(ch: Character) -> void:
+	ch.teleport(ch.global_position + Vector3(0, 0, 2.2))
+
+
 func _open_gates() -> void:
 	_gates_open = true
+	stop_lonely_watch()
 	Game.lock_input()
 	await get_tree().create_timer(0.4).timeout
 	for g in _gates:
@@ -313,14 +382,15 @@ func _open_gates() -> void:
 		"a: O que é... aquilo?",
 		"b: Está acorrentado. Não se mexa rápido.",
 		"A criatura ergue a cabeça. A voz não sai da boca: sai das paredes.",
-		"\"Dois. Faz tanto tempo que não vêm dois.\"",
-		"\"Cheguem perto. Os dois. Tenho uma pergunta.\"",
+		"\"Vieram em par. Faz tanto tempo que ninguém desce em par.\"",
+		"\"Cheguem perto. Quero ver quem estava dirigindo.\"",
+		"b: Não escuta, %s. Não escuta nada do que ela disser." % Game.name_a,
 	])
 	cam.target = party.active
 	Game.unlock_input()
-	objective("Aproximem-se da criatura. Os dois.")
+	objective("Aproximem-se da criatura. Lado a lado.")
 	hints([
-		"A criatura só fala com os dois perto dela.",
+		"A criatura só fala quando %s e %s estão perto dela." % [Game.name_a, Game.name_b],
 		"Pense no que cresce quando a última tocha se apaga.",
 		"A resposta é ESCURIDÃO.",
 	])
@@ -339,9 +409,12 @@ func _on_monster(ch: Character) -> void:
 		Audio.sfx("monster_growl", -6.0, 0.8)
 		cam.shake(0.3)
 		await say([
-			"\"Uma pergunta. Uma resposta. É só isso que eu peço.\"",
+			"\"Você trouxe %s até aqui.\"" % Game.name_b,
+			"\"Como trouxe até a ponte.\"",
+			"a: ...Eu não sei do que está falando.",
+			"\"Sabe. Uma pergunta. Uma resposta. É só isso que eu peço.\"",
 			RIDDLE,
-			"b: %s... ela está olhando para nós dois." % Game.name_a,
+			"b: %s... a criatura não tira os olhos de você." % Game.name_a,
 		])
 	var lock := SphinxLock.new("A Esfinge", ANSWERS, RIDDLE, [
 		"Pense no que acontece quando as tochas se apagam.",
@@ -372,7 +445,8 @@ func _break_chains() -> void:
 	await say([
 		"\"...Escuridão.\"",
 		"Pela primeira vez, a criatura não parece faminta. Parece triste.",
-		"\"Então vocês já sabem onde estão.\"",
+		"\"Você fechou os olhos por um segundo, %s. Lembra quanto custou?\"" % Game.name_a,
+		"\"Agora abra.\"",
 	])
 	Audio.sfx("chain_rattle", 2.0)
 	Audio.sfx("monster_growl", 0.0, 0.7)
@@ -388,6 +462,9 @@ func _break_chains() -> void:
 	var fade := create_tween().set_parallel()
 	fade.tween_property(party.b.sprite, "modulate:a", 0.0, 1.2)
 	fade.tween_property(_monster, "modulate:a", 0.0, 1.2)
+	# O hospital vaza: o monitor de B vira uma linha reta.
+	Audio.sfx("flatline", -4.0)
+	bleed(["Leito %d entrando em falência. Chamem a família." % Game.number_b], false)
 	await get_tree().create_timer(1.4).timeout
 	await say([
 		"a: %s?" % Game.name_b,
@@ -571,10 +648,11 @@ func _on_memory(ch: Character, i: int) -> void:
 	var lines := ["b: " + line]
 	match _memories_found:
 		1:
-			lines.append("a: A voz dele... vem de todo lugar.")
+			lines.append("a: A voz de %s... vem de todo lugar." % Game.name_b)
 			lines.append("?: Acorde...")
 		2:
-			lines.append("a: Eu não lembro de ter esquecido. Só lembro de doer.")
+			lines.append("a: Sair de onde? Do carro?")
+			lines.append("a: Eu não quero lembrar disso.")
 			lines.append("?: Acorde...")
 		3:
 			lines.append("?: Acorde...")
@@ -583,6 +661,62 @@ func _on_memory(ch: Character, i: int) -> void:
 	objective("Junte as lembranças que flutuam no branco. (%d/3)" % _memories_found)
 	if _memories_found >= MEMORIES.size():
 		_open_light_door()
+	await _ghost(_memories_found)
+
+
+# --- O Esquecido no branco ------------------------------------------------------------
+
+## A cada lembrança, o Esquecido aparece parado no branco, mais perto. Na terceira,
+## logo atrás de A; some quando A se mexe ou se vira.
+func _ghost(n: int) -> void:
+	var s := spawn_stalker()
+	s.hunting = false
+	var a := party.a
+	var pos: Vector3
+	match n:
+		1:
+			pos = a.global_position + Vector3(-2.5, 0, -8.5)
+			_ghost_near = 3.0
+			_ghost_t = 9.0
+			_ghost_on_move = false
+		2:
+			pos = a.global_position + Vector3(2.0, 0, -4.5)
+			_ghost_near = 2.5
+			_ghost_t = 7.0
+			_ghost_on_move = false
+		_:
+			var back := {"up": Vector3(0.45, 0, 1.2), "down": Vector3(0.45, 0, -1.2), "left": Vector3(1.2, 0, 0.35), "right": Vector3(-1.2, 0, 0.35)}
+			pos = a.global_position + (back.get(a.facing, Vector3(0.45, 0, 1.2)) as Vector3)
+			_ghost_near = 0.0
+			_ghost_t = 12.0
+			_ghost_on_move = true
+	pos.x = clampf(pos.x, W.x - 13.0, W.x + 13.0)
+	pos.z = clampf(pos.z, -19.0, 8.5)
+	pos.y = 0.0
+	s.appear(pos, 0.25 if n < 3 else 0.05)
+	Audio.sfx("dread_sting", -8.0 if n < 3 else -2.0)
+	_ghost_from = a.global_position
+	_ghost_facing = a.facing
+	if n >= 3:
+		Audio.sfx("breath", -4.0)
+		await say(["Alguém respira bem atrás de %s. Uma respiração molhada, de quem saiu da água." % Game.name_a])
+		_ghost_from = a.global_position
+		_ghost_facing = a.facing
+
+
+func _check_ghost(delta: float) -> void:
+	if stalker == null or not stalker.is_active() or not Game.can_control():
+		return
+	var a := party.a
+	_ghost_t -= delta
+	var gone := _ghost_t <= 0.0
+	if _ghost_on_move:
+		gone = gone or a.global_position.distance_to(_ghost_from) > 0.3 or a.facing != _ghost_facing
+	elif stalker.distance_to_active() < _ghost_near:
+		gone = true
+	if gone:
+		Audio.sfx("whisper_many", -14.0)
+		stalker.vanish(0.15 if _ghost_on_move else 0.8)
 
 
 func _open_light_door() -> void:
@@ -597,6 +731,8 @@ func _open_light_door() -> void:
 
 func _on_light_door(ch: Character) -> void:
 	Game.lock_input()
+	if stalker and stalker.is_active():
+		stalker.vanish(0.3)
 	await ch.walk_to(_light_door.position + Vector3(0, 0, 3.0), 1.6)
 	ch.face("up")
 	await say(["?: Acorde..."])
@@ -651,3 +787,18 @@ func _debug_door() -> void:
 	party.a.teleport(W + Vector3(0.8, 0, -12.5))
 	cam.offset = Vector3(0, 8.0, 11.0)
 	cam.snap()
+
+
+## Fase branca com o Esquecido a cinco metros (segunda lembrança).
+func _debug_white_ghost() -> void:
+	_debug_white_mid()
+	_memories_found = 2
+	_ghost(2)
+
+
+## A cela aberta do lado de A, com a lembrança m8 no fundo.
+func _debug_cell() -> void:
+	party.activate("a", true)
+	party.a.teleport(Vector3(-4.6, 0, -5.4))
+	cam.snap()
+

@@ -5,7 +5,7 @@ extends ModalPanel
 
 func _init() -> void:
 	title = ""
-	panel_size = Vector2(1300, 780)
+	panel_size = Vector2(1300, 940)
 	closable = false
 
 
@@ -25,6 +25,10 @@ func _build(c: VBoxContainer) -> void:
 - O papel e a caneta são seus amigos. O que um de vocês lê ou anota, o outro não vê. Cada um tem o próprio diário ([b]%s[/b]).
 
 - [b]%s[/b] troca entre os dois. Algumas portas só se abrem com os dois juntos.
+
+- Não fique longe do outro por muito tempo. Se ouvir o coração, corra ou se esconda.
+
+- Errar tem preço. Pense antes de tentar.
 
 - Travou? O diário tem dicas.""" % [Ui.key_label("journal"), Ui.key_label("switch")]
 	c.add_child(rt)

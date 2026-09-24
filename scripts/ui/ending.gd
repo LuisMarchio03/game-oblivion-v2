@@ -1,11 +1,25 @@
 extends Control
-## Final: monitor cardíaco, leito, mensagem e créditos.
+## Finais. `Game.ending` decide:
+##   forget   — A escolheu esquecer: o monitor desacelera até a linha reta.
+##   remember — A lembrou, sem todas as lembranças: acorda; o leito de B está vazio.
+##   hope     — A lembrou com as 8 lembranças: acorda; B respira, o monitor de B responde.
+## Depois, créditos.
+
+const TITLES := {
+	"forget": "FINAL: ESQUECIMENTO",
+	"remember": "FINAL: LEMBRANÇA",
+	"hope": "FINAL: AINDA HÁ ESPERANÇA",
+}
 
 var _ecg: Control
 var _pts: PackedVector2Array = []
 var _x := 0.0
 var _beat_t := 0.0
 var _running := true
+var _period := 1.0  # segundos por batida
+var _flat := false
+var _label := ""
+var _label_color := Color(0.35, 1.0, 0.55, 0.9)
 
 
 func _ready() -> void:
@@ -37,13 +51,15 @@ func _process(delta: float) -> void:
 		_x = 0.0
 		_pts.clear()
 	var y := size.y * 0.5
-	var phase := fmod(_beat_t, 1.0)
-	if phase < 0.04:
-		y -= 160.0 * sin(phase / 0.04 * PI)
-	elif phase < 0.08:
-		y += 60.0 * sin((phase - 0.04) / 0.04 * PI)
-	if phase < delta:
-		Audio.sfx("monitor_beep", -8.0)
+	if not _flat:
+		var phase := fmod(_beat_t, _period) / _period
+		var k := 1.0 / _period
+		if phase < 0.04 * k:
+			y -= 160.0 * sin(phase / (0.04 * k) * PI)
+		elif phase < 0.08 * k:
+			y += 60.0 * sin((phase - 0.04 * k) / (0.04 * k) * PI)
+		if phase < delta / _period:
+			Audio.sfx("monitor_beep", -8.0)
 	_pts.append(Vector2(_x, y))
 	_ecg.queue_redraw()
 
@@ -53,33 +69,93 @@ func _draw_ecg() -> void:
 		_ecg.draw_polyline(_pts, Color(0.35, 1.0, 0.55, 0.9), 4.0)
 	var font := UiTheme.ui_font()
 	_ecg.draw_string(font, Vector2(80, 110), "LEITO %d" % Game.number_a, HORIZONTAL_ALIGNMENT_LEFT, -1, 56, Color(0.35, 1.0, 0.55, 0.9))
+	if _label != "":
+		_ecg.draw_string(font, Vector2(80, 180), _label, HORIZONTAL_ALIGNMENT_LEFT, -1, 44, _label_color)
 
 
 func _sequence() -> void:
-	await Ui.fade_in(2.0)
-	await get_tree().create_timer(4.0).timeout
-	await Ui.narrate([
-		"Você abre os olhos.",
-		"A luz é branca demais. Tem cheiro de remédio.",
-		"A cadeira ao lado da cama está vazia.",
-	], UiTheme.INK, 44)
-	await Ui.narrate([
-		"%s não voltou com você." % Game.name_b,
-	], UiTheme.INK_DIM, 44)
-	await Ui.narrate([
-		"Os assassinos não moravam naquela casa.",
-		"Aquele que te dopa. Aquele que te induz.\nAquele que te separa. Aquele que te seduz.",
-		"Eles estão aqui fora.",
-	], UiTheme.INK, 44)
-	Audio.music("music_ending", 3.0, -4.0)
-	await Ui.narrate(["[color=#ffffff]AINDA HÁ ESPERANÇA[/color]"], UiTheme.INK, 64)
+	if Game.ending == "":
+		Game.ending = "hope" if Game.all_memories() else "remember"
+	match Game.ending:
+		"forget":
+			await _forget()
+		"hope":
+			await _wake(true)
+		_:
+			await _wake(false)
 	_running = false
 	var t := create_tween()
 	t.tween_property(_ecg, "modulate:a", 0.0, 2.0)
 	await t.finished
+	await Ui.narrate(["[color=#8193ab]%s[/color]" % TITLES.get(Game.ending, "")], UiTheme.INK, 52)
 	await _credits()
 	await Ui.fade_out(2.0)
 	Game.go_to_menu()
+
+
+## Esquecer: o sonho fica bonito e o coração desacelera até parar.
+func _forget() -> void:
+	_ecg.modulate.a = 0.0
+	await Ui.fade_in(2.0)
+	Audio.ambience("amb_white", 2.0, -6.0)
+	await Ui.narrate([
+		"Você escolhe não lembrar.",
+		"A casa é branca e bonita. O sol não se põe.",
+		"%s está ao seu lado. Ninguém pergunta nada." % Game.name_b,
+		"Você não sente mais frio.",
+	], UiTheme.INK, 44)
+	Audio.stop_ambience(3.0)
+	create_tween().tween_property(_ecg, "modulate:a", 1.0, 2.0)
+	for p in [1.3, 1.8, 2.6, 3.6]:
+		_period = p
+		await get_tree().create_timer(p * 2.0).timeout
+	_flat = true
+	Audio.sfx("flatline", -6.0)
+	_label = "04:15"
+	_label_color = Color(0.9, 0.2, 0.25, 0.95)
+	await get_tree().create_timer(5.0).timeout
+	await Ui.narrate(["[color=#8193ab]Existem outros finais.[/color]"], UiTheme.INK, 40)
+
+
+## Lembrar: A acorda no leito. Com as 8 lembranças, B também responde.
+func _wake(hope: bool) -> void:
+	await Ui.fade_in(2.0)
+	await get_tree().create_timer(3.0).timeout
+	await Ui.narrate([
+		"Você abre os olhos.",
+		"Luz fria. Cheiro de remédio. Um bipe que é seu.",
+		"A cortina do leito ao lado está aberta.",
+	], UiTheme.INK, 44)
+	if hope:
+		await Ui.narrate([
+			"Leito %d. %s respira por um tubo." % [Game.number_b, Game.name_b],
+			"O monitor de lá apita. Fraco. Mas apita.",
+			"Você estica o braço até doer.\nOs dedos de %s se fecham nos seus." % Game.name_b,
+		], UiTheme.INK, 44)
+		Audio.music("music_ending", 3.0, -4.0)
+		await Ui.narrate([
+			"Você embaça o vidro da janela com a respiração\ne escreve com o dedo:",
+			"[color=#ffffff]NUNCA ESQUEÇA[/color]",
+		], UiTheme.INK, 48)
+		await Ui.narrate(["[color=#ffffff]AINDA HÁ ESPERANÇA[/color]"], UiTheme.INK, 64)
+	else:
+		await Ui.narrate([
+			"Leito %d. O colchão sem lençol." % Game.number_b,
+			"Uma enfermeira dobra um cobertor e não olha para você.",
+			"No criado-mudo, alguém deixou um relógio de bolso.\nParado em 3:15.",
+		], UiTheme.INK, 44)
+		Audio.music("music_ending", 3.0, -8.0)
+		await Ui.narrate([
+			"Você lembra. Da festa, da chave, da ponte, da água.",
+			"Vai lembrar amanhã também.",
+		], UiTheme.INK, 44)
+		_running = false
+		Audio.stop_music(1.0)
+		Audio.sfx("heartbeat", -2.0)
+		await Ui.narrate([
+			"Você limpa o vapor da janela.",
+			"Do lado de dentro do vidro,\na marca de uma mão. [color=#a3202a]Vermelha.[/color]",
+		], UiTheme.INK_DIM, 44)
 
 
 func _credits() -> void:
@@ -102,6 +178,8 @@ func _credits() -> void:
 		["", 30, UiTheme.FONT_UI],
 		["%s  ·  %s" % [Game.name_a, Game.name_b], 40, UiTheme.FONT_UI],
 		["Tempo de jogo: %d min" % int(Game.play_time / 60.0), 30, UiTheme.FONT_UI],
+		["Lembranças: %d/%d" % [Game.memories.size(), Game.MEMORY_TOTAL], 30, UiTheme.FONT_UI],
+		[TITLES.get(Game.ending, ""), 30, UiTheme.FONT_UI],
 		["", 60, UiTheme.FONT_UI],
 		["Esteja no controle da sua vida.", 56, UiTheme.FONT_SERIF],
 	]:

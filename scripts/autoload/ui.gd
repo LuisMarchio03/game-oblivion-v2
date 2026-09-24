@@ -30,6 +30,15 @@ var _flash: ColorRect
 var _modal_stack: Array[Control] = []
 var _dialog_busy := false
 var _switch_enabled := true
+# Medo: 0 = calmo, 1 = o Esquecido está em cima. Controla vinheta, tom e batimento.
+var _dread := 0.0
+var _dread_goal := 0.0
+var _beat_t := 0.0
+var _fx_base := {"vignette": 0.55, "grain": 0.045, "tint": Color(0.0, 0.02, 0.06)}
+var _bleed_box: Control
+var _bleed_label: RichTextLabel
+var _bleed_queue: Array = []
+var _bleeding := false
 
 
 func _ready() -> void:
@@ -52,6 +61,7 @@ func _ready() -> void:
 	_build_hud()
 	_build_prompt()
 	_build_dialog()
+	_build_bleed()
 
 	_toasts = VBoxContainer.new()
 	_toasts.set_anchors_preset(Control.PRESET_CENTER_TOP)
@@ -158,6 +168,8 @@ func clear_whiteout(time := 2.0) -> void:
 func change_scene(path: String) -> void:
 	close_all_panels()
 	hide_prompt()
+	set_dread(0.0, true)
+	_bleed_queue.clear()
 	set_hud_visible(false)
 	in_level = false
 	await fade_out(0.6)
@@ -167,10 +179,112 @@ func change_scene(path: String) -> void:
 
 
 func set_screen_fx(vignette: float, grain := 0.045, tint := Color(0.0, 0.02, 0.06)) -> void:
+	_fx_base = {"vignette": vignette, "grain": grain, "tint": tint}
+	_apply_fx()
+
+
+func _apply_fx() -> void:
 	var sm: ShaderMaterial = _fx.material
-	sm.set_shader_parameter("vignette", vignette)
-	sm.set_shader_parameter("grain", grain)
-	sm.set_shader_parameter("tint", tint)
+	var d := _dread
+	sm.set_shader_parameter("vignette", lerpf(_fx_base["vignette"], 1.15, d * 0.8))
+	sm.set_shader_parameter("grain", _fx_base["grain"] + d * 0.08)
+	sm.set_shader_parameter("tint", (_fx_base["tint"] as Color).lerp(Color(0.16, 0.0, 0.01), d))
+
+
+# --- Medo ---------------------------------------------------------------------------
+
+## Nível de medo (0..1). Sobe e desce suave; acima de ~0,1 o coração bate.
+func set_dread(v: float, instant := false) -> void:
+	_dread_goal = clampf(v, 0.0, 1.0)
+	if instant:
+		_dread = _dread_goal
+		_apply_fx()
+
+
+func get_dread() -> float:
+	return _dread
+
+
+func _process(delta: float) -> void:
+	if absf(_dread - _dread_goal) > 0.001:
+		_dread = move_toward(_dread, _dread_goal, delta * (1.6 if _dread_goal > _dread else 0.5))
+		_apply_fx()
+	if _dread > 0.1 and not get_tree().paused:
+		_beat_t += delta
+		var period := lerpf(1.3, 0.42, _dread)
+		if _beat_t >= period:
+			_beat_t = 0.0
+			Audio.sfx("heartbeat", lerpf(-26.0, -1.0, _dread), lerpf(0.95, 1.12, _dread))
+	else:
+		_beat_t = 0.0
+
+
+# --- Vozes do hospital ----------------------------------------------------------------
+
+## O hospital vaza para o sonho: legendas frias no alto da tela, com chiado de rádio.
+## Não bloqueia o jogo. Linhas chegam em fila.
+func bleed(lines: Array, beep := true) -> void:
+	_bleed_queue.append_array(lines)
+	if beep:
+		_bleed_queue.push_front("__beep__")
+	if not _bleeding:
+		_run_bleed()
+
+
+func _run_bleed() -> void:
+	_bleeding = true
+	while not _bleed_queue.is_empty():
+		var line: String = str(_bleed_queue.pop_front())
+		if line == "__beep__":
+			for i in 3:
+				Audio.sfx("monitor_beep", -12.0)
+				await get_tree().create_timer(0.55, true, false, true).timeout
+			continue
+		Audio.sfx("radio_static", -12.0, randf_range(0.95, 1.05))
+		_bleed_label.text = "[center][i]" + line + "[/i][/center]"
+		_bleed_label.visible_characters = -1
+		_bleed_box.visible = true
+		var t := create_tween()
+		_bleed_box.modulate.a = 0.0
+		for i in 3:
+			t.tween_property(_bleed_box, "modulate:a", 0.9, 0.06)
+			t.tween_property(_bleed_box, "modulate:a", 0.25, 0.05)
+		t.tween_property(_bleed_box, "modulate:a", 1.0, 0.1)
+		t.tween_interval(clampf(line.length() * 0.06, 2.6, 5.5))
+		t.tween_property(_bleed_box, "modulate:a", 0.0, 0.8)
+		await t.finished
+	_bleed_box.visible = false
+	_bleeding = false
+
+
+func _build_bleed() -> void:
+	_bleed_box = PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.85, 0.95, 1.0, 0.06)
+	sb.border_color = Color(0.75, 0.92, 1.0, 0.25)
+	sb.border_width_top = 1
+	sb.border_width_bottom = 1
+	sb.set_content_margin_all(14)
+	_bleed_box.add_theme_stylebox_override("panel", sb)
+	_bleed_box.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_bleed_box.position = Vector2(-700, 150)
+	_bleed_box.custom_minimum_size = Vector2(1400, 0)
+	_bleed_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_bleed_label = RichTextLabel.new()
+	_bleed_label.bbcode_enabled = true
+	_bleed_label.fit_content = true
+	_bleed_label.scroll_active = false
+	_bleed_label.custom_minimum_size = Vector2(1370, 0)
+	_bleed_label.add_theme_font_override("normal_font", load(UiTheme.FONT_TYPED))
+	_bleed_label.add_theme_font_override("italics_font", load(UiTheme.FONT_TYPED))
+	_bleed_label.add_theme_font_size_override("normal_font_size", 34)
+	_bleed_label.add_theme_font_size_override("italics_font_size", 34)
+	_bleed_label.add_theme_color_override("default_color", Color("d8f1ff"))
+	_bleed_label.add_theme_color_override("font_shadow_color", Color(0.3, 0.8, 1.0, 0.5))
+	_bleed_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_bleed_box.add_child(_bleed_label)
+	_bleed_box.visible = false
+	_root.add_child(_bleed_box)
 
 
 # --- Cartões e narração -----------------------------------------------------------
@@ -233,6 +347,7 @@ func narrate(lines: Array, color := UiTheme.INK, size := 44) -> void:
 # --- Diálogo ----------------------------------------------------------------------
 
 ## Mostra falas na caixa inferior. Prefixos "a:" e "b:" definem quem fala;
+## "?:" é uma voz sem dono; "x:" é a voz que imita B (o nome de B, num tom errado);
 ## sem prefixo é narração.
 func say(lines: Array) -> void:
 	Game.lock_input()
@@ -242,17 +357,25 @@ func say(lines: Array) -> void:
 	for raw in lines:
 		var line := str(raw)
 		var speaker := ""
+		var fake := false
 		if line.begins_with("a:") or line.begins_with("b:"):
 			speaker = Game.char_name(line.substr(0, 1))
+			line = line.substr(2).strip_edges()
+		elif line.begins_with("x:"):
+			speaker = Game.name_b
+			fake = true
 			line = line.substr(2).strip_edges()
 		elif line.begins_with("?:"):
 			speaker = "???"
 			line = line.substr(2).strip_edges()
 		_dialog_speaker.text = speaker
 		_dialog_speaker.visible = speaker != ""
+		_dialog_speaker.add_theme_color_override("font_color", Color("b0677a") if fake else UiTheme.ACCENT)
 		_dialog_text.text = line
 		_dialog_text.visible_characters = 0
-		await _type(_dialog_text, 0.028)
+		if fake:
+			Audio.sfx("whisper_many", -22.0, 0.8)
+		await _type(_dialog_text, 0.05 if fake else 0.028)
 		await _wait_advance(-1.0)
 	_dialog.visible = false
 	_dialog_busy = false
@@ -489,6 +612,12 @@ func read_doc(who: String, doc: Dictionary) -> void:
 	await open_panel(NoteView.new(doc))
 	if is_new:
 		toast("Guardado no diário de %s" % Game.char_name(who))
+
+
+## Pergunta com opções; devolve o índice escolhido (não fecha sem escolher).
+func choose(question: String, options: Array) -> int:
+	var r = await open_panel(ChoicePanel.new(question, options))
+	return int(r) if r != null else 0
 
 
 func jumpscare(texture_path := "res://assets/legacy/face_hand.png", time := 0.55) -> void:

@@ -1,15 +1,30 @@
 extends LevelBase
 ## Capítulo 2 — O Cemitério.
-## B acorda dentro do cemitério murado; A está na porta da capela.
+## B acorda dentro do cemitério murado, em cima de uma sétima cova, de terra fresca, com
+## uma cruz de madeira e o nome de B escrito a giz, sem data. A está na porta da capela.
 ## Seis lápides (I–VI), espalhadas fora de ordem, formam o acróstico LEMBRE.
 ## A abre o cadeado de seis rodas; o portão do cemitério destrava junto e os
 ## dois entram na capela.
+## Terror: depois que B lê duas lápides, o Esquecido sai da cova aberta e patrulha entre as
+## covas (lento, visão curta). Esconderijos: o mausoléu aberto e atrás do anjo que chora.
+## Errar o cadeado apaga as luzes da porta. Vozes do hospital: ao começar a patrulha e
+## quando B lê o próprio nome. Lembrança m2 ("A chave"): canto escuro entre a capela e a
+## mata, atrás da árvore a oeste da fachada.
 
 const ANSWER := "LEMBRE"
 const DOOR_POS := Vector3(-7, 0, -9)
 const GATE_X := 1.0
 const GATE_Z := -3.0
 const CEM := Rect2(1.0, -11.8, 12.8, 17.6)  # cemitério murado (x, z, largura, fundo)
+const GRAVE7 := Vector3(8.8, 0, 0.9)          # a sétima cova (terra fresca, nome de B)
+const ANGEL := Vector3(6.8, 0, -3.9)          # anjo que chora (esconderijo atrás dele)
+const MAUSO := Vector3(6.2, 0, -10.6)
+const RISE := Vector3(7.9, 0, -6.9)           # onde ele sai da cova aberta
+const SAFE_B := Vector3(7.8, 0, 1.8)          # ponto seguro de B (longe da ronda)
+const SAFE_A := Vector3(-7, 0, -6.4)
+const MEMORY := Vector3(-13.5, 0, -8.1)
+## Ronda entre as covas (corredores livres entre lápides, cruzes e árvores).
+const PATROL := [Vector3(11.6, 0, -8.0), Vector3(4.6, 0, -8.0), Vector3(4.6, 0, -2.9), Vector3(11.6, 0, -2.9)]
 
 ## Numeral, verso, posição (x, z), rotação y, inclinação.
 const STONES := [
@@ -31,6 +46,11 @@ var _solved := false
 var _bars: Array[Transform3D] = []
 var _spikes: Array[Transform3D] = []
 var _crows: Array[Node3D] = []
+var _b_read := {}
+var _patrol_on := false
+var _grave_seen := false
+var _name_erased := false
+var _grave_name: Label3D
 
 
 func _init() -> void:
@@ -38,7 +58,7 @@ func _init() -> void:
 	preset = "cemetery"
 	ambience = "amb_forest"
 	spawn_a = Vector3(-7, 0, -3.5)
-	spawn_b = Vector3(8.8, 0, 0.4)
+	spawn_b = Vector3(7.8, 0, 1.0)
 	start_who = "b"
 	cam_bounds = Rect2(-9.5, -8.5, 20, 12)
 
@@ -61,6 +81,7 @@ func _build() -> void:
 	_build_graves()
 	_build_courtyard()
 	_build_nature()
+	_build_terror()
 	_finish_multimeshes()
 
 	# Limites do mapa.
@@ -152,8 +173,9 @@ func _build_chapel() -> void:
 	}, "Ler a placa", "any", 1.0)
 	Build.box(geo, Vector3(0.7, 0.5, 0.05), DOOR_POS + Vector3(-1.9, 1.5, 0.27), Build.color_mat(Color("7a5a2e"), 0.0, 0.4), false)
 	# Lanternas da porta.
-	Build.torch(geo, DOOR_POS + Vector3(-1.15, 1.9, 0.45), 1.3, 6.0)
-	Build.torch(geo, DOOR_POS + Vector3(1.15, 1.9, 0.45), 1.3, 6.0)
+	# Errar o cadeado apaga estas luzes, uma por erro.
+	dread_light(_light_of(Build.torch(geo, DOOR_POS + Vector3(-1.15, 1.9, 0.45), 1.3, 6.0)))
+	dread_light(_light_of(Build.torch(geo, DOOR_POS + Vector3(1.15, 1.9, 0.45), 1.3, 6.0)))
 
 
 func _try_lock(ch: Character) -> void:
@@ -178,6 +200,11 @@ func _solve(_ch: Character) -> void:
 	_solved = true
 	_lock_it.disable()
 	Game.lock_input()
+	var was_hunting := _patrol_on
+	_patrol_on = false
+	if stalker and stalker.is_active():
+		Audio.sfx("whisper_many", -10.0)
+		stalker.vanish(1.2)
 	Audio.sfx_at("lock_open", _padlock, 0.0)
 	var t := create_tween()
 	t.tween_property(_padlock, "position:y", 0.08, 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
@@ -192,11 +219,12 @@ func _solve(_ch: Character) -> void:
 	await get_tree().create_timer(1.8).timeout
 	cam.target = party.active
 	Game.unlock_input()
-	await say([
-		"a: Abriu. E ouvi um estalo do lado do cemitério.",
-		"b: O portão! Destravou sozinho.",
-		"a: Vem até aqui. A gente entra junto.",
-	])
+	set_checkpoint(Vector3(GATE_X - 1.6, 0, GATE_Z), Vector3(GATE_X + 1.6, 0, GATE_Z))
+	var lines := ["a: Abriu. E ouvi um estalo do lado do cemitério.", "b: O portão destravou."]
+	if was_hunting:
+		lines.append("b: E ele sumiu. Estava bem ali, entre as covas, e sumiu.")
+	lines.append("a: Não espera ele voltar. Vem até aqui. A gente entra junto.")
+	await say(lines)
 	objective("Entrem juntos na capela.")
 	hints([
 		"O portão do cemitério está aberto.",
@@ -372,7 +400,7 @@ func _build_graves() -> void:
 		var pos2: Vector2 = s[2]
 		_gravestone(s[0], s[1], Vector3(pos2.x, 0, pos2.y), s[3], s[4], stone)
 	# Túmulos sem nome (cenário): cruzes, lápides quebradas, cova aberta, mausoléu.
-	var crosses := [Vector2(2.6, -5.0), Vector2(12.4, -7.6), Vector2(9.2, -1.2), Vector2(2.8, 3.8), Vector2(12.6, -1.8)]
+	var crosses := [Vector2(2.6, -5.0), Vector2(12.4, -7.6), Vector2(10.1, -1.4), Vector2(2.8, 3.8), Vector2(12.6, -1.8)]
 	for c in crosses:
 		_cross(Vector3(c.x, 0, c.y), rng.randf_range(-12, 12), stone)
 	var broken := [Vector2(6.0, -5.6), Vector2(9.6, 4.2), Vector2(12.2, -10.4), Vector2(2.4, -10.4)]
@@ -431,12 +459,13 @@ func _gravestone(numeral: String, verse: String, pos: Vector3, rot_y: float, til
 	for i in 3:
 		Build.box(root, Vector3(0.5 - i * 0.08, 0.025, 0.01), Vector3(0, 0.62 - i * 0.12, 0.115), carve, false)
 	Build.blocker(geo, Vector3(0.95, 1.6, 0.35), pos + Vector3(0, 0.8, 0)).rotation_degrees.y = rot_y
-	doc(pos + Vector3(0, 0.3, 0.7), {
+	var data := {
 		"id": "ch2_lapide_" + numeral.to_lower(),
 		"title": "Lápide " + numeral,
 		"body": "[center][font_size=64]%s[/font_size]\n\n[i]\"%s\"[/i][/center]" % [numeral, verse],
 		"style": "stone",
-	}, "Ler a lápide " + numeral, "any", 1.1)
+	}
+	interact(pos + Vector3(0, 0.3, 0.7), "Ler a lápide " + numeral, _read_stone.bind(numeral, data), "any", 1.1)
 
 
 func _cross(pos: Vector3, rot_y: float, material: Material) -> void:
@@ -473,8 +502,8 @@ func _build_courtyard() -> void:
 	Build.box(geo, Vector3(0.3, 0.35, 0.3), Vector3(-4.8, 2.35, -2.2), Build.color_mat(Color("e0a860"), 0.7), false)
 	Build.omni(geo, Vector3(-4.8, 2.4, -1.9), Color("ffb870"), 0.9, 6.0, false, true)
 	# Velas nos degraus da capela.
-	Build.candle(geo, DOOR_POS + Vector3(-1.4, 0.0, 0.9), 0.5, 3.0)
-	Build.candle(geo, DOOR_POS + Vector3(1.5, 0.0, 1.0), 0.5, 3.0)
+	dread_light(_light_of(Build.candle(geo, DOOR_POS + Vector3(-1.4, 0.0, 0.9), 0.5, 3.0)))
+	dread_light(_light_of(Build.candle(geo, DOOR_POS + Vector3(1.5, 0.0, 1.0), 0.5, 3.0)))
 
 
 # --- Natureza e clima ------------------------------------------------------------------
@@ -485,7 +514,7 @@ func _build_nature() -> void:
 	for p in [Vector3(12.4, 0, -4.8), Vector3(3.2, 0, -6.4), Vector3(8.4, 0, -11.0), Vector3(12.9, 0, -0.6)]:
 		Build.tree(geo, "tree_dead", p, rng.randf_range(0.9, 1.2), true, tint)
 	# Árvores no pátio e moldura.
-	for p in [Vector3(-12.8, 0, -3.0), Vector3(-2.6, 0, -7.2), Vector3(-13.2, 0, -7.6)]:
+	for p in [Vector3(-12.8, 0, -3.0), Vector3(-2.6, 0, -7.2), Vector3(-13.9, 0, -6.3)]:
 		Build.tree(geo, "tree_dead", p, rng.randf_range(1.0, 1.3), true, tint)
 	for i in 14:
 		var x := -22.0 + i * 3.4 + rng.randf_range(-0.6, 0.6)
@@ -534,14 +563,187 @@ func _build_nature() -> void:
 		Audio.sfx("whisper_saia", -10.0))
 
 
+# --- Terror: a sétima cova, o anjo, o mausoléu aberto e a lembrança ------------------------
+
+func _build_terror() -> void:
+	# A sétima cova: terra fresca, cruz de madeira e o nome de B a giz. Sem data.
+	var fresh := Build.mat("dirt", Color(0.62, 0.5, 0.4), 1.0)
+	Build.box(geo, Vector3(1.0, 0.26, 1.9), GRAVE7 + Vector3(0, 0.1, 0.1), fresh, false)
+	for k in 5:
+		var clod := Build.box(geo, Vector3(0.18, 0.1, 0.16), GRAVE7 + Vector3(rng.randf_range(-0.7, 0.7), 0.05, rng.randf_range(-0.6, 1.2)), fresh, false, rng.randf_range(0, 90))
+		clod.rotation_degrees.z = rng.randf_range(-20, 20)
+	var cross := Node3D.new()
+	cross.position = GRAVE7 + Vector3(0, 0, -1.05)
+	cross.rotation_degrees = Vector3(-4, 3, 5)
+	geo.add_child(cross)
+	var wood := Build.mat("planks_dark", Color(0.85, 0.75, 0.62), 1.0)
+	Build.box(cross, Vector3(0.1, 1.25, 0.08), Vector3(0, 0.62, 0), wood, false)
+	Build.box(cross, Vector3(0.66, 0.1, 0.08), Vector3(0, 0.92, 0), wood, false)
+	_grave_name = Build.text3d(cross, Game.name_b.to_upper(), Vector3(0, 0.92, 0.045), 0.0, 30, Color("e9e6dc"), UiTheme.FONT_HAND, 0.0045)
+	Build.blocker(geo, Vector3(0.3, 1.3, 0.3), cross.position + Vector3(0, 0.65, 0))
+	interact(GRAVE7 + Vector3(0, 0.4, -0.5), "Examinar a cruz", _examine_grave, "any", 1.3, true, 1.6)
+
+	# Anjo de pedra cobrindo o rosto com as mãos. Atrás dele dá para se esconder.
+	var stone := Build.mat("stone_wall", Color(0.7, 0.72, 0.78), 1.0)
+	var marble := Build.mat("marble_white", Color(0.66, 0.68, 0.76), 1.0)
+	Build.box(geo, Vector3(0.9, 0.5, 0.9), ANGEL + Vector3(0, 0.25, 0), stone, true)
+	Build.cylinder(geo, 0.27, 1.2, ANGEL + Vector3(0, 1.1, 0), marble, false, 8)
+	Build.sphere(geo, 0.17, ANGEL + Vector3(0, 1.86, 0.02), marble)
+	for side in [-1.0, 1.0]:
+		var arm := Build.box(geo, Vector3(0.09, 0.42, 0.09), ANGEL + Vector3(side * 0.17, 1.62, 0.13), marble, false)
+		arm.rotation_degrees = Vector3(-24, 0, side * 22)
+		Build.box(geo, Vector3(0.11, 0.15, 0.06), ANGEL + Vector3(side * 0.06, 1.87, 0.18), marble, false)
+		var wing := Build.box(geo, Vector3(0.07, 0.95, 0.5), ANGEL + Vector3(side * 0.3, 1.62, -0.24), marble, false)
+		wing.rotation_degrees = Vector3(0, side * 32, side * -14)
+	hide_spot(ANGEL + Vector3(0, 0, -1.05), "Esconder-se atrás do anjo")
+
+	# O mausoléu está aberto: a laje da porta caída de lado.
+	var ms := Build.mat("stone_wall", Color(0.62, 0.66, 0.74), 1.5)
+	var slab := Build.box(geo, Vector3(1.0, 1.7, 0.12), MAUSO + Vector3(1.05, 0.85, 1.25), ms, false, -38.0)
+	slab.rotation_degrees.z = -6
+	hide_spot(MAUSO + Vector3(0, 0, 1.25), "Esconder-se no mausoléu")
+
+	# Lembrança m2: canto escuro entre a capela e a mata, atrás da árvore.
+	Build.flat_sprite(geo, "icon_key", MEMORY + Vector3(0.25, 0.03, 0.2), Vector3(-90, 35, 0), 0.018, Color(0.8, 0.8, 0.75))
+	Build.billboard(geo, "fern", MEMORY + Vector3(-0.4, 0, 0.5), 0.035, 1, 0, Color(0.7, 0.75, 0.85))
+	memory(MEMORY, "m2", "A chave",
+		"%s tentou tirar a chave do meu bolso. Eu empurrei.\n\n\"Eu sei dirigir. Eu sempre sei.\"\n\nNinguém ficou do meu lado. Nem eu." % Game.name_b)
+
+
+func _light_of(n: Node) -> Light3D:
+	for c in n.get_children():
+		if c is Light3D:
+			return c
+	return null
+
+
+func _examine_grave(ch: Character) -> void:
+	if ch.who == "a":
+		if _name_erased:
+			await say(["a: Não tem nome nenhum aí. Não tem."])
+			return
+		_name_erased = true
+		var first := not _grave_seen
+		_grave_seen = true
+		await say([
+			"a: Uma cova nova. A terra ainda está solta.",
+			"a: A cruz tem o nome de %s. Escrito a giz." % Game.name_b,
+			"a: Não. Não, não, não.",
+			"%s esfrega a manga do moletom na madeira até o nome sumir." % Game.name_a,
+		])
+		create_tween().tween_property(_grave_name, "modulate:a", 0.0, 1.2)
+		if first:
+			bleed(["A família do outro paciente está no corredor. Ainda não."])
+		await say(["a: Pronto. Não tem nome nenhum aqui."])
+		return
+	if _name_erased:
+		await say([
+			"b: Tinha um nome escrito nessa cruz.",
+			"b: Alguém apagou. Ficou só o pó de giz na madeira.",
+		])
+		return
+	if _grave_seen:
+		await say(["b: Não quero ler de novo."])
+		return
+	_grave_seen = true
+	await say([
+		"b: Uma cova nova. Foi aqui que eu acordei.",
+		"b: A cruz tem um nome escrito a giz.",
+		"b: ...é o meu nome.",
+		"b: Sem data. Só o nome. Como se ainda faltasse alguma coisa.",
+	])
+	bleed(["A família do outro paciente está no corredor. Ainda não."])
+	await say([
+		"a: %s? Você parou de falar. O que foi?" % Game.name_b,
+		"b: Nada. Depois eu te conto.",
+	])
+
+
+## Lápide lida. Quando B já leu duas, o Esquecido sai da cova aberta.
+func _read_stone(ch: Character, numeral: String, data: Dictionary) -> void:
+	await Ui.read_doc(ch.who, data)
+	if ch.who != "b" or _solved:
+		return
+	_b_read[numeral] = true
+	if _b_read.size() >= 2 and not _patrol_on:
+		await _start_patrol()
+
+
+func _start_patrol() -> void:
+	_patrol_on = true
+	Game.lock_input()
+	var s := spawn_stalker()
+	s.walk_speed = 1.1
+	s.chase_speed = 3.3  # andando não dá para fugir; correndo, dá
+	s.sight = 4.2
+	s.hunting = false
+	# Sai da cova aberta, ou do canto mais longe de B, para não nascer em cima de ninguém.
+	var rise := RISE
+	var start := 1
+	var options := [[RISE, 1], [PATROL[3], 0], [PATROL[1], 2]]
+	var best := -1.0
+	for o in options:
+		var d: float = (o[0] as Vector3).distance_to(party.b.global_position)
+		if d > best:
+			best = d
+			rise = o[0]
+			start = o[1]
+	Audio.sfx("stone_grind", -8.0, 0.7)
+	s.appear(rise, 1.6)
+	await cam.look_at_point(rise + Vector3(0, 1.0, 0), 1.4)
+	Audio.sfx("dread_sting", -4.0)
+	await get_tree().create_timer(1.4).timeout
+	cam.target = party.active
+	Game.unlock_input()
+	bleed(["Escala de Glasgow: seis."])
+	await say([
+		"b: %s... tem alguém no meio das covas." % Game.name_a,
+		"a: Quem? Quem está aí?",
+		"b: Alto. A roupa pingando. A mão cobrindo o rosto.",
+		"a: O mesmo da clareira. Veio atrás da gente.",
+		"b: Está andando entre as lápides. Devagar. Como se procurasse alguém.",
+		"a: Não deixa ele te ver. O mausoléu está aberto. E tem aquele anjo de pedra.",
+		"b: Se ele vier, eu corro.",
+	])
+	set_checkpoint(SAFE_A, SAFE_B)
+	if _solved:
+		return
+	s.patrol(PATROL, start)
+	_grace(s, 2.5)
+	Ui.toast("[%s] correr · [%s] esconder-se e sair" % [Ui.key_label("run"), Ui.key_label("interact")], UiTheme.BLOOD)
+	objective("Leiam as lápides sem deixar que ele alcance %s." % Game.name_b)
+	hints([
+		"Ele anda devagar e só enxerga de perto, para a frente. Correndo, dá para fugir. Esconda %s no mausoléu aberto ou atrás do anjo." % Game.name_b,
+		"Leia os versos das seis lápides na ordem dos numerais (I a VI) e junte a primeira letra de cada um.",
+		"As iniciais formam LEMBRE. Use essa palavra no cadeado da capela.",
+	])
+
+
+## Alguns segundos sem caçar (logo depois de surgir ou de alcançar alguém).
+func _grace(s: Stalker, secs: float) -> void:
+	s.hunting = false
+	await get_tree().create_timer(secs, false).timeout
+	if is_instance_valid(s) and _patrol_on:
+		s.hunting = true
+
+
+func _caught(ch: Character) -> void:
+	super._caught(ch)
+	if stalker and _patrol_on:
+		_grace(stalker, 4.0)
+
+
 func _begin() -> void:
 	objective("Descubram onde estão.")
 	await say([
-		"b: ...que frio. Isso é terra de cova.",
-		"b: %s? Estou preso num cemitério. O portão está trancado." % Game.name_a,
-		"a: Estou do lado de fora, na porta de uma capela. Tem um cadeado com seis rodas de letras.",
-		"b: Aqui tem lápides com números romanos. Estão todas fora de ordem.",
-		"a: Lê para mim o que está escrito. Eu anoto.",
+		"b: ...que frio.",
+		"b: Acordei com o rosto na terra. Terra solta, fresca.",
+		"b: %s? Estou dentro de um cemitério. O portão está trancado." % Game.name_a,
+		"a: %s! Estou do lado de fora, na porta de uma capela. Tem um cadeado com seis rodas de letras." % Game.name_b,
+		"b: Aqui tem lápides com números romanos. Todas fora de ordem.",
+		"b: E uma cruz de madeira bem do meu lado. Nova.",
+		"a: Lê para mim o que está escrito nas lápides. Eu anoto.",
+		"b: Fala comigo enquanto isso. Não gosto do silêncio daqui.",
 	])
 	objective("Descubram a palavra de seis letras do cadeado da capela.")
 	hints([
@@ -559,3 +761,18 @@ func _debug_open() -> void:
 	_padlock.visible = false
 	_door.open(100.0, 0.1)
 	_open_gate()
+
+
+## Começa a ronda na hora, sem a cena (tools/shot.sh --call=_debug_patrol).
+func _debug_patrol() -> void:
+	var s := spawn_stalker()
+	s.walk_speed = 1.1
+	s.chase_speed = 3.3
+	s.sight = 4.2
+	s.hunting = false
+	_patrol_on = true
+	s.appear(Vector3(8.4, 0, -2.9), 0.0)
+	s.patrol(PATROL, 3)
+	party.activate("b", true)
+	party.b.teleport(Vector3(8.2, 0.1, 0.2))
+	cam.snap()

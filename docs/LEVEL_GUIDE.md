@@ -60,13 +60,38 @@ func _begin() -> void:            # corotina após o fade-in: falas, objective()
 - Game: `Game.name_a/name_b`, `Game.number_a/number_b`, `Game.set_flag/get_flag`, `Game.char_name(who)`.
 - Audio: `Audio.sfx(nome, db)`, `Audio.sfx_at(nome, no3d)`, `Audio.music(nome)`, `Audio.ambience(nome)`.
 
+## Terror (obrigatório em todo capítulo — ver "Terror por capítulo" no DESIGN)
+
+- **O Esquecido** (`Stalker`, sprite `forgotten`, 4 quadros: 0 mão no rosto, 1-2 andando, 3 rosto de A):
+  `var s := spawn_stalker()`; aparição roteirizada `s.appear(pos)`, `await s.vanish(t)`, `s.stand()`,
+  `await s.walk_to(pos, vel)`, `s.reveal()`; patrulha `s.patrol([pontos])` (persegue quem enxergar,
+  paredes bloqueiam a visão, correr foge, esconder-se despista), `s.chase(ch)`, `s.stalk(ch, vel)`.
+  Ajustes: `walk_speed`, `chase_speed`, `sight`, `hunting`. Ao alcançar alguém: susto, os dois
+  voltam a `set_checkpoint(pos_a, pos_b)` e `_caught(ch)` (sobrescreva para reposicionar a patrulha).
+  O medo na tela (vinheta vermelha + batimento) sobe sozinho com a distância.
+- `hide_spot(pos, prompt, who)`: esconderijo (armário, debaixo da cama). Interagir de novo sai.
+- `lonely_watch(func(): return <Character sozinho ou null>, limite_s, func(ch): <desfaz o que segurava>)`:
+  quem fica sozinho parado (placa, roda) ouve sussurros e o Esquecido chega por trás. `stop_lonely_watch()`.
+- `dread_light(luz, grupo)`: registre 2–4 luzes perto de cada enigma; `dread_focus(grupo)` antes de abrir o enigma faz o erro apagar primeiro as luzes dele. Cada erro apaga uma; o 3º erro dá susto
+  e o Esquecido aparece atrás do jogador por 2 s (automático, via `Game.puzzle_failed`).
+- `bleed(["linha", ...])` / `bleed_zone(pos, size, linhas)`: voz do hospital vazando (legenda fria,
+  bipe e chiado; não bloqueia). Frases curtas, clínicas, sem nome de personagem (use o número do leito).
+- `say()` aceita `"x: fala"`: a voz que imita B (aparece com o nome de B em tom errado). Sempre seguida,
+  em algum momento, do B verdadeiro negando ter falado.
+- `memory(pos, "mN", titulo, corpo)`: lembrança escondida (brilho fraco, sem marcador). Só A toca.
+  Esconda de verdade (atrás de objeto, canto escuro, fora do caminho), mas alcançável.
+- `Ui.jumpscare()`, `Ui.set_dread(v)`, `Ui.flash(cor)`, `cam.shake()`. SFX novos: radio_static,
+  flatline, stalker_step, whisper_many, light_out, dread_sting. Ambiente novo: amb_hospital.
+- Pronomes: nunca use pronome ou adjetivo com gênero para A ou B (os nomes são digitados pelo
+  jogador). Reescreva com o nome ou sem sujeito ("%s não subiu", "Estou com frio").
+
 ## Recursos
 
 - Texturas (`Build.mat`): grass, dirt, forest_floor, stone_path, cobble, brick, stone_wall,
   wood_floor, wood_wall, planks_dark, wallpaper_stripes, wallpaper_damask, tile_checker, tile_bath,
   tile_kitchen, roof, bark, metal, rust_metal, carpet_red, bed_cloth, marble_white, plaster, water,
   gravestone, dungeon_stone, dirt_dark, ceiling_wood, curtain.
-- Sprites: char_a/b, monster (2 quadros), corpse, crow (2), tree_pine, tree_dead, tree_oak, bush,
+- Sprites: char_a/b, forgotten (4 quadros), monster (2 quadros), corpse, crow (2), tree_pine, tree_dead, tree_oak, bush,
   grass (3), fern, reeds, flower_white, vines, cobweb, flame (4), torch (4), firefly, dust, fog, glow,
   icon_key, icon_note, icon_journal, icon_hand, icon_eye. Arte original: `res://assets/legacy/`
   (face_hand.png, face_hand_wide.png, blood_hand.png, padlock.png, old_paper.jpg, house_front.png).

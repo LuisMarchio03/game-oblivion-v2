@@ -80,6 +80,10 @@ func _make_panel(kind: String) -> Control:
 			return JournalPanel.new()
 		"names":
 			return NameEntry.new()
+		"choice":
+			return ChoicePanel.new("O que você faz?", ["Lembrar", "Esquecer"])
+		"memory":
+			return NoteView.new({"title": "A água", "style": "memory", "body": "Frio. Escuro. A água entrando pelo painel.\n\nO cinto não abria. Eu puxava e ele não abria.\n\nAí duas mãos abriram por mim."})
 		"rules":
 			return RulesPanel.new()
 		"pause":

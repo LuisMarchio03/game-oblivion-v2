@@ -1021,6 +1021,83 @@ def flash(r):
     return fade(y, 0.005, 0.4)
 
 
+# ----------------------------------------------------------------------------- terror (O Esquecido, hospital)
+
+
+@sfx
+def radio_static(r):
+    """Rádio mal sintonizado: chiado em faixa estreita, estalos e rajadas."""
+    n = ns(2.6)
+    t = tt(n)
+    gate = 0.35 + 0.65 * smooth(r, n, 9, 0.0, 1.0) ** 2
+    hiss = bp(white(r, n), 900, 4200, 2) * gate
+    crackle = np.zeros(n)
+    for t0 in r.uniform(0, 2.5, 60):
+        put(crackle, r.uniform(0.3, 1.0) * nz(tick(r, ns(0.01), 0.0015, 3500)), t0)
+    whine = sine(1720 + 40 * np.sin(TAU * 0.7 * t), n) * 0.04
+    y = nz(hiss) + 0.5 * nz(crackle) + whine
+    y *= env_ar(n, 0.05, 0.35)
+    return lp(y, 6500)
+
+
+@sfx
+def flatline(r):
+    n = ns(4.2)
+    y = (sine(1000, n) + 0.08 * sine(2000, n)) * env_ar(n, 0.004, 0.6)
+    return reverb(y, r, 0.5, 0.1, damp=8000)
+
+
+@sfx
+def stalker_step(r):
+    """Passo pesado e molhado, descalço."""
+    n = ns(0.55)
+    y = nz(thump(n, 85, 45, 0.09, 0.02))
+    squelch = bp(white(r, n), 500, 2200) * expdec(n, 0.07) * (1 + 0.6 * np.sin(TAU * 38 * tt(n)))
+    drip_ = np.zeros(n)
+    put(drip_, nz(bubble(r, 900, 0.1, 1.8, 0.02)), 0.18)
+    y = y + 0.45 * nz(squelch) + 0.2 * drip_
+    return reverb(lp(y, 2500), r, 1.2, 0.3, damp=4000)
+
+
+@sfx
+def whisper_many(r):
+    """Muitas vozes sussurrando ao mesmo tempo, sem palavra clara."""
+    y = np.zeros(ns(3.4))
+    for i in range(9):
+        v = whisper_voice(r, r.uniform(0.7, 1.25), r.uniform(0.7, 1.3))
+        put(y, r.uniform(0.3, 0.8) * nz(v), r.uniform(0.0, 1.6))
+    y = hp(y, 300)
+    y = reverb(y, r, 2.6, 0.6, damp=6000, predelay=0.02)[: ns(3.4)]
+    return fade(y, 0.2, 0.6)
+
+
+@sfx
+def light_out(r):
+    """Lâmpada que estoura e morre num chiado."""
+    n = ns(1.1)
+    pop = nz(hp(white(r, ns(0.03)), 1500)) * expdec(ns(0.03), 0.006)
+    fizz = bp(white(r, n), 2500, 7000) * smooth(r, n, 30, 0.0, 1.0) ** 3 * expdec(n, 0.35)
+    y = np.zeros(n)
+    put(y, pop, 0.0)
+    y += 0.5 * nz(fizz)
+    y += 0.4 * nz(thump(n, 120, 60, 0.05))
+    return reverb(y, r, 0.9, 0.25, damp=7000)
+
+
+@sfx
+def dread_sting(r):
+    """Sopro invertido que cresce e corta num baque grave."""
+    n = ns(2.6)
+    t = tt(n)
+    rise = np.clip(t / 2.0, 0, 1) ** 3 * (t < 2.0)
+    swell = stft_band(pink(r, n), 300 * (4000 / 300) ** np.clip(t / 2.0, 0, 1), 1.0) * rise
+    y = nz(swell)
+    hit = np.zeros(n)
+    put(hit, nz(thump(ns(0.6), 70, 32, 0.3, 0.03)) + 0.4 * nz(hp(white(r, ns(0.6)), 900) * expdec(ns(0.6), 0.08)), 2.0)
+    y = 0.7 * y + hit
+    return fade(reverb(np.tanh(1.8 * y), r, 1.8, 0.3, damp=5000)[:n], 0.01, 0.3)
+
+
 def finish_sfx(x):
     x = hp(np.asarray(x, float), 20, 2)
     thr = np.max(np.abs(x)) * 10 ** (-66 / 20)
@@ -1193,6 +1270,33 @@ def amb_white(r, L):
     return creverb(mix, r, 5.0, 0.6, damp=8000)
 
 
+def amb_hospital(r, L):
+    """Zumbido de lâmpada fria, respirador ao longe e um monitor que apita."""
+    t = tt(L)
+    per = L / SR
+    hum = drone(r, L, [120.0, 240.0, 360.0, 60.0], [1.0, 0.45, 0.2, 0.6], lfo_cycles=(2, 7))
+    buzz = fft_shape(white(r, L, 2), g_bp(3000, 5000)) * 0.15
+    vent = np.zeros((2, L))
+    cycle = 5.0
+    k = int(per / cycle)
+    for i in range(k):
+        n = ns(cycle)
+        tn = tt(n)
+        breath_env = np.sin(np.pi * np.clip(tn / 2.2, 0, 1)) ** 2 + 0.6 * np.sin(np.pi * np.clip((tn - 2.6) / 2.0, 0, 1)) ** 2
+        b = lp(pink(r, n), 900) * breath_env
+        put_wrap(vent, pan(0.5 * nz(b), 0.5), i * cycle)
+    beeps = np.zeros((2, L))
+    beat = 1.1
+    for i in range(int(per / beat)):
+        nb_ = ns(0.16)
+        y = (sine(1000, nb_) + 0.08 * sine(2000, nb_)) * env_ar(nb_, 0.004, 0.012)
+        put_wrap(beeps, pan(0.25 * y, -0.6), i * beat)
+    beeps = creverb(beeps, r, 1.6, 0.8, damp=5000)
+    del t
+    mix = 0.35 * nz(hum) + 0.05 * nz(buzz) + 0.35 * nz(vent) + 0.35 * nz(beeps)
+    return creverb(mix, r, 1.2, 0.15, damp=6000)
+
+
 def add_piano(buf, midi, t0, hold, vel, r, jitter=0.008, pan_w=1.0):
     y = piano(midi, hold, vel)
     put_wrap(buf, pan(y * r.uniform(0.9, 1.05), pan_w * (midi - 62) / 36), t0 + r.uniform(-jitter, jitter))
@@ -1321,6 +1425,7 @@ LOOPS = {
     "amb_attic": (45.0, amb_attic, AMB_PEAK_DB),
     "amb_dungeon": (60.0, amb_dungeon, AMB_PEAK_DB),
     "amb_white": (60.0, amb_white, AMB_PEAK_DB),
+    "amb_hospital": (55.0, amb_hospital, AMB_PEAK_DB),
     "music_menu": (64.0, music_menu, MUSIC_PEAK_DB),
     "music_tension": (45.0, music_tension, MUSIC_PEAK_DB),
     "music_ending": (64.0, music_ending, MUSIC_PEAK_DB),

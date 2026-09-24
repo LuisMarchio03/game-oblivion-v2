@@ -1,10 +1,13 @@
 extends LevelBase
-## Capítulo 9 — Ainda Há Esperança.
+## Capítulo 9 — Quatro e Quinze.
 ## Casa branca, só A. As quatro pistas impressas do original viram locais da casa:
 ## garagem (DOPA) → planta à esquerda da saída da biblioteca (INDUZ) → planta no
 ## canto escuro da galeria, atrás do quadro da nota de R$ 50 (SEDUZ) → a cama onde
 ## A acordou (SEPARA). Cada local só funciona na sua vez e entrega a frase e a pista
-## seguinte. Com as quatro, o laboratório destranca e o terminal pede as frases.
+## seguinte. A cada frase, a casa vira um pouco mais hospital (lâmpadas frias, macas,
+## cortinas, soro) e o Esquecido aparece mais perto. Com as quatro, o laboratório (a UTI,
+## com o leito de B) destranca e o terminal pede as frases. Depois: o Esquecido abaixa a
+## mão (o rosto é o de A), B aparece e A escolhe entre lembrar e esquecer.
 
 const H := 3.4  # pé-direito
 const GARAGE_Y := -2.4
@@ -37,6 +40,14 @@ const PHRASES := [
 	{"id": "ch9_separa", "title": "AQUELE QUE TE SEPARA", "style": "hand", "body": "[center]seu orgulho te cega[/center]"},
 ]
 
+## O que o hospital diz depois de cada frase (vozes vazando para o sonho).
+const STAGE_BLEED := [
+	["Benzodiazepínico no sangue. Dose de quem queria dormir."],
+	["Álcool acima do limite. Misturado com o remédio."],
+	["Os amigos da festa já depuseram. Ninguém chamou um táxi."],
+	["Uma testemunha viu os dois brigando pela chave do carro."],
+]
+
 const FOUND := [
 	["Debaixo do entulho, embrulhado num saco plástico, um bilhete escrito à mão."],
 	["Enterrado no vaso, entre as raízes, um papel enrolado."],
@@ -67,6 +78,12 @@ var _lab_door_it: Interactable
 var _floor: Material
 var _wall: Material
 var _in_garage := false
+# A casa vira hospital aos poucos: um grupo de objetos por frase encontrada.
+var _hosp: Array[Node3D] = []
+var _warm_lights: Array[OmniLight3D] = []
+var _lab_lights: Array[OmniLight3D] = []
+# O Esquecido some quando A chega perto (distância no plano).
+var _vanish_at := 0.0
 
 
 func _init() -> void:
@@ -90,6 +107,7 @@ func _build() -> void:
 	_build_library()
 	_build_gallery()
 	_build_lab()
+	_build_hospital()
 	Build.motes(geo, Vector3(0, 1.6, -3), Vector3(22, 1.5, 8), 90, Color(1.0, 0.97, 0.9, 0.7), "dust", 0.04)
 
 
@@ -112,7 +130,7 @@ func _build_corridor() -> void:
 	# Passadeira e luminárias.
 	Build.box(geo, Vector3(38, 0.02, 1.2), Vector3(1, 0.01, 3.9), Build.mat("carpet_red", Color(0.75, 0.72, 0.78), 1.5), false)
 	for x in [-15.0, -5.0, 5.0, 16.0]:
-		Build.omni(geo, Vector3(x, 2.8, 3.8), Color("fff1dc"), 0.35, 5.0)
+		_warm_lights.append(Build.omni(geo, Vector3(x, 2.8, 3.8), Color("fff1dc"), 0.35, 5.0))
 	# Plantas do corredor: a certa fica logo à esquerda da saída da biblioteca.
 	_plant(Vector3(3.3, 0, 2.55), true)
 	interact(Vector3(3.3, 0.4, 2.9), "Examinar a planta", _try_spot.bind(1), "a", 1.0, false)
@@ -144,7 +162,7 @@ func _build_kitchen() -> void:
 	Build.cylinder(geo, 0.2, 0.08, Vector3(-15, 0.86, -2.2), white, false, 12)
 	for c in [Color("c43b2c"), Color("e0a526"), Color("7aa33a")]:
 		Build.sphere(geo, 0.07, Vector3(-15 + randf_range(-0.1, 0.1), 0.95, -2.2 + randf_range(-0.1, 0.1)), Build.color_mat(c))
-	Build.omni(geo, Vector3(-15, 2.8, -2.5), Color("fff4e4"), 0.4, 6.0)
+	_warm_lights.append(Build.omni(geo, Vector3(-15, 2.8, -2.5), Color("fff4e4"), 0.4, 6.0))
 
 
 func _build_garage() -> void:
@@ -258,7 +276,7 @@ func _build_library() -> void:
 	Build.sphere(geo, 0.32, Vector3(8.6, 0.72, -3.0), Build.color_mat(Color("5b86a8")))
 	Build.box(geo, Vector3(0.9, 0.5, 0.9), Vector3(1.4, 0.25, -2.2), Build.color_mat(Color("8a4a3a")))
 	Build.box(geo, Vector3(0.9, 0.8, 0.2), Vector3(1.4, 0.7, -2.6), Build.color_mat(Color("8a4a3a")), false)
-	Build.omni(geo, Vector3(4.2, 2.4, -3.5), Color("ffe6c0"), 0.55, 6.0)
+	_warm_lights.append(Build.omni(geo, Vector3(4.2, 2.4, -3.5), Color("ffe6c0"), 0.55, 6.0))
 	Build.text3d(geo, "BIBLIOTECA", Vector3(5.0, 2.95, -6.24), 0.0, 40, Color("6a5a48"))
 	doc(Vector3(4.0, 0.6, -2.1), {
 		"id": "ch9_livro",
@@ -299,7 +317,7 @@ func _build_gallery() -> void:
 		Build.box(geo, Vector3(1.6, 0.1, 0.5), Vector3(bx, 0.45, -2.0), Build.mat("wood_floor", Color(1, 1, 1), 1.0))
 		for lx in [-0.65, 0.65]:
 			Build.box(geo, Vector3(0.08, 0.4, 0.4), Vector3(bx + lx, 0.2, -2.0), Build.color_mat(Color("3a3a3a")), false)
-	Build.omni(geo, Vector3(18.0, 2.8, -2.5), Color("fff4e4"), 0.35, 6.0)
+	_warm_lights.append(Build.omni(geo, Vector3(18.0, 2.8, -2.5), Color("fff4e4"), 0.35, 6.0))
 	Build.text3d(geo, "GALERIA", Vector3(16.0, 3.1, -6.83), 0.0, 32, Color("7a7466"))
 	# Porta do laboratório.
 	_lab_door = Build.door(geo, LAB_DOOR, 0.0, Build.mat("wood_wall", Color(0.95, 0.95, 0.97), 1.0))
@@ -353,8 +371,8 @@ func _build_lab() -> void:
 	Build.box(geo, Vector3(1.0, 0.64, 0.02), Vector3(18.0, 1.3, -15.24), Build.color_mat(Color("3fb8e0"), 2.2), false)
 	Build.text3d(geo, "> _", Vector3(17.75, 1.4, -15.22), 0.0, 40, Color("dff8ff"), UiTheme.FONT_UI, 0.006)
 	Build.box(geo, Vector3(0.7, 0.03, 0.25), Vector3(18.0, 0.86, -14.85), Build.color_mat(Color("2a2e34")), false)
-	Build.omni(geo, Vector3(18.0, 1.5, -14.4), Color("7fd6f2"), 0.8, 4.0)
-	# Leito vazio, soro e monitor: um presságio.
+	_lab_lights.append(Build.omni(geo, Vector3(18.0, 1.5, -14.4), Color("7fd6f2"), 0.8, 4.0))
+	# O leito de B: vazio, soro e monitor.
 	var sheet := Build.color_mat(Color("f4f6f8"))
 	Build.box(geo, Vector3(1.0, 0.6, 2.1), Vector3(14.6, 0.3, -12.5), Build.color_mat(Color("aab4be"), 0.0, 0.4))
 	Build.box(geo, Vector3(1.02, 0.12, 1.9), Vector3(14.6, 0.66, -12.4), sheet, false)
@@ -363,21 +381,130 @@ func _build_lab() -> void:
 	Build.box(geo, Vector3(0.2, 0.3, 0.06), Vector3(15.4, 1.75, -13.4), Build.color_mat(Color("d8eef6", 0.8)), false)
 	Build.box(geo, Vector3(0.5, 0.4, 0.3), Vector3(14.0, 1.4, -15.7), Build.color_mat(Color("22272e")), false)
 	Build.box(geo, Vector3(0.44, 0.3, 0.02), Vector3(14.0, 1.4, -15.54), Build.color_mat(Color("38d07a"), 1.8), false)
-	Build.text3d(geo, "LEITO %d" % Game.number_a, Vector3(14.6, 2.3, -15.8), 0.0, 36, Color("4a5a68"), UiTheme.FONT_UI)
+	Build.text3d(geo, "LEITO %d" % Game.number_b, Vector3(14.6, 2.3, -15.8), 0.0, 36, Color("4a5a68"), UiTheme.FONT_UI)
 	# Estantes com frascos.
 	for sx in [21.0, 22.2]:
 		Build.box(geo, Vector3(1.1, 2.0, 0.4), Vector3(sx, 1.0, -15.6), desk)
 		for i in 5:
 			var col: Color = [Color("7ad0c8"), Color("e0a0c0"), Color("b0d080"), Color("f0d070")][i % 4]
 			Build.cylinder(geo, 0.06, 0.22, Vector3(sx - 0.4 + i * 0.2, 2.11, -15.5), Build.color_mat(Color(col, 0.8), 0.6), false, 8)
-	Build.omni(geo, Vector3(18.0, 2.9, -11.5), Color("e4f2ff"), 0.5, 7.0)
+	_lab_lights.append(Build.omni(geo, Vector3(18.0, 2.9, -11.5), Color("e4f2ff"), 0.5, 7.0))
+	for l in _lab_lights:
+		dread_light(l)
 	interact(Vector3(18.0, 0.5, -14.2), "Usar o terminal", _on_terminal, "a", 1.3, false)
+
+
+# --- A casa vira hospital -------------------------------------------------------------
+
+func _build_hospital() -> void:
+	for i in 4:
+		var g := Node3D.new()
+		g.name = "Hospital%d" % i
+		g.visible = false
+		geo.add_child(g)
+		_hosp.append(g)
+	var steel := Build.color_mat(Color("b8c0c8"), 0.0, 0.35)
+	var sheet := Build.color_mat(Color("eef2f4"))
+	var green := Build.color_mat(Color("9fc4b8"), 0.0, 0.9)
+	# 0 — corredor: lâmpadas frias, maca e soro.
+	for x in [-15.0, -5.0, 5.0, 16.0]:
+		Build.box(_hosp[0], Vector3(1.4, 0.06, 0.2), Vector3(x, 3.3, 3.8), Build.color_mat(Color("e8f6ff"), 2.0), false)
+		Build.omni(_hosp[0], Vector3(x, 2.9, 3.8), Color("dff2ff"), 0.5, 5.5, false, true)
+	_gurney(_hosp[0], Vector3(-8.5, 0, 4.85), steel, sheet)
+	_iv_stand(_hosp[0], Vector3(12.0, 0, 5.0), steel)
+	_iv_stand(_hosp[0], Vector3(-1.0, 0, 5.05), steel)
+	# 1 — cozinha e biblioteca: carrinho de remédios, cadeira de rodas.
+	Build.box(_hosp[1], Vector3(0.9, 0.9, 0.55), Vector3(-17.5, 0.45, -4.5), steel)
+	for i in 6:
+		Build.cylinder(_hosp[1], 0.04, 0.12, Vector3(-17.8 + i * 0.12, 0.96, -4.5), Build.color_mat(Color("f0c060"), 0.3), false, 6)
+	_wheelchair(_hosp[1], Vector3(7.8, 0, -1.2), steel)
+	Build.omni(_hosp[1], Vector3(-15, 2.9, -2.5), Color("dff2ff"), 0.45, 6.0, false, true)
+	Build.omni(_hosp[1], Vector3(4.2, 2.9, -3.5), Color("dff2ff"), 0.45, 6.0, false, true)
+	# 2 — galeria: quadros cobertos por lençóis, placa da UTI.
+	for q in [Vector3(12.9, 1.9, -6.76), Vector3(16.0, 1.95, -6.74)]:
+		var w := 1.3 if q.x < 14.0 else 3.3
+		Build.box(_hosp[2], Vector3(w, 2.0, 0.05), q + Vector3(0, -0.05, 0.08), sheet, false)
+	Build.text3d(_hosp[2], "UTI", LAB_DOOR + Vector3(0, 3.1, 0.17), 0.0, 40, Color("b0303a"), UiTheme.FONT_UI)
+	_wheelchair(_hosp[2], Vector3(20.6, 0, -1.4), steel)
+	Build.omni(_hosp[2], Vector3(18.0, 2.9, -2.5), Color("dff2ff"), 0.45, 6.0, false, true)
+	# 3 — o quarto: a cama de A vira leito, com cortina, soro e monitor.
+	Build.box(_hosp[3], Vector3(0.05, 2.3, 3.0), BED + Vector3(-1.45, 1.15, 0.1), green, false)
+	Build.box(_hosp[3], Vector3(0.05, 0.05, 3.2), BED + Vector3(-1.45, 2.35, 0.1), steel, false)
+	for sx in [-1.08, 1.08]:
+		Build.box(_hosp[3], Vector3(0.04, 0.3, 1.4), BED + Vector3(sx, 0.95, 0.2), steel, false)
+	_iv_stand(_hosp[3], BED + Vector3(-1.0, 0, -1.0), steel)
+	Build.box(_hosp[3], Vector3(0.5, 0.4, 0.3), BED + Vector3(1.5, 1.5, -1.25), Build.color_mat(Color("22272e")), false)
+	Build.box(_hosp[3], Vector3(0.44, 0.3, 0.02), BED + Vector3(1.5, 1.5, -1.09), Build.color_mat(Color("38d07a"), 1.8), false)
+	Build.text3d(_hosp[3], "LEITO %d" % Game.number_a, BED + Vector3(0, 2.4, -1.43), 0.0, 36, Color("4a5a68"), UiTheme.FONT_UI)
+	Build.omni(_hosp[3], BED + Vector3(0, 2.8, 0.5), Color("dff2ff"), 0.5, 5.0, false, true)
+
+
+func _gurney(parent: Node3D, pos: Vector3, steel: Material, sheet: Material) -> void:
+	Build.box(parent, Vector3(2.0, 0.08, 0.7), pos + Vector3(0, 0.85, 0), steel)
+	Build.box(parent, Vector3(1.9, 0.14, 0.64), pos + Vector3(0, 0.95, 0), sheet, false)
+	for lx in [-0.9, 0.9]:
+		for lz in [-0.28, 0.28]:
+			Build.box(parent, Vector3(0.04, 0.85, 0.04), pos + Vector3(lx, 0.42, lz), steel, false)
+	# Um lençol que ainda tem a forma de alguém.
+	var lump := Build.sphere(parent, 0.3, pos + Vector3(0.2, 1.05, 0), sheet)
+	lump.scale = Vector3(2.6, 0.45, 0.9)
+
+
+func _iv_stand(parent: Node3D, pos: Vector3, steel: Material) -> void:
+	Build.cylinder(parent, 0.02, 1.9, pos + Vector3(0, 0.95, 0), steel, false, 6)
+	Build.box(parent, Vector3(0.5, 0.03, 0.03), pos + Vector3(0, 1.88, 0), steel, false)
+	Build.box(parent, Vector3(0.16, 0.26, 0.06), pos + Vector3(0.18, 1.7, 0), Build.color_mat(Color(0.85, 0.93, 1.0, 0.8), 0.4), false)
+	Build.cylinder(parent, 0.22, 0.04, pos + Vector3(0, 0.03, 0), steel, false, 8)
+
+
+func _wheelchair(parent: Node3D, pos: Vector3, steel: Material) -> void:
+	Build.box(parent, Vector3(0.6, 0.08, 0.6), pos + Vector3(0, 0.5, 0), Build.color_mat(Color("30343a")), true)
+	Build.box(parent, Vector3(0.6, 0.6, 0.06), pos + Vector3(0, 0.85, -0.3), Build.color_mat(Color("30343a")), false)
+	for wx in [-0.34, 0.34]:
+		var wheel := Build.cylinder(parent, 0.32, 0.04, pos + Vector3(wx, 0.32, 0), steel, false, 14)
+		wheel.rotation_degrees.z = 90
+
+
+## Mostra o próximo pedaço do hospital: lâmpadas quentes apagam, as frias acendem.
+func _hospitalize(step: int) -> void:
+	if step < 0 or step >= _hosp.size():
+		return
+	Audio.sfx("light_out", -6.0)
+	Audio.sfx("radio_static", -10.0)
+	await Ui.flash(Color(0.85, 0.95, 1.0), 0.35)
+	_hosp[step].visible = true
+	var cold := {0: [0, 1, 2, 3], 1: [4, 5], 2: [6]}
+	for i in cold.get(step, []):
+		if i < _warm_lights.size():
+			create_tween().tween_property(_warm_lights[i], "light_energy", 0.0, 0.3)
+	if step == 3:
+		Audio.ambience("amb_hospital", 4.0)
+		var t := create_tween().set_parallel()
+		t.tween_property(env, "ambient_light_color", Color("c8dcec"), 3.0)
+		t.tween_property(moon, "light_color", Color("d8ecff"), 3.0)
+
+
+## O Esquecido aparece parado e some quando A chega a `near` metros (ou depois de `life` s).
+func _apparition(pos: Vector3, near := 6.0, life := 25.0) -> void:
+	var s := spawn_stalker()
+	if s.is_active():
+		await s.vanish(0.2)
+	s.appear(pos, 1.2)
+	_vanish_at = near
+	Audio.sfx("dread_sting", -10.0)
+	await get_tree().create_timer(life).timeout
+	if s.is_active() and not _done:
+		s.vanish(1.5)
 
 
 ## A garagem é escura de verdade: ao descer, a luz da casa se apaga aos poucos.
 func _process(_delta: float) -> void:
 	if party == null or party.active == null:
 		return
+	if stalker and stalker.is_active() and _vanish_at > 0.0 and stalker.distance_to_active() < _vanish_at:
+		_vanish_at = 0.0
+		Audio.sfx("whisper_many", -14.0)
+		stalker.vanish(0.4)
 	var p := party.active.global_position
 	var g := p.x < -20.2 and p.y < -0.6
 	if g == _in_garage:
@@ -419,8 +546,9 @@ func _begin() -> void:
 		"a: Tem um papel no meu bolso.",
 	])
 	await Ui.read_doc("a", CLUES[0])
-	await say(["?: Encontre os quatro... Eles moram aqui dentro."])
+	await say(["?: Quatro coisas trouxeram você até aqui. Encontre as quatro."])
 	_update_stage()
+	bleed(["Leito %d. Sinais estáveis. Sem resposta a estímulo." % Game.number_a])
 
 
 func _update_stage() -> void:
@@ -472,6 +600,15 @@ func _try_spot(_ch: Character, idx: int) -> void:
 		await Ui.read_doc("a", CLUES[idx + 1])
 	_busy = false
 	_update_stage()
+	await _hospitalize(idx)
+	bleed(STAGE_BLEED[idx])
+	match idx:
+		0:
+			_apparition(Vector3(20.6, 0, 3.8), 7.0)
+		1:
+			_apparition(Vector3(16.0, 0, 3.4), 6.0)
+		2:
+			_apparition(BED + Vector3(1.3, 0, 1.6), 5.5, 40.0)
 	if _stage >= 4:
 		_unlock_lab()
 
@@ -532,15 +669,92 @@ func _on_terminal(_ch: Character) -> void:
 func _finale() -> void:
 	_done = true
 	Game.lock_input()
-	Audio.sfx("monitor_beep", -4.0)
+	var a := party.a
+	a.face("up")
+	# As luzes morrem. Sobra a tela do terminal.
+	Audio.sfx("light_out", -2.0)
+	Audio.sfx("flatline", -14.0)
+	cam.shake(0.3)
+	for l in _lab_lights:
+		if l != _lab_lights[0]:
+			create_tween().tween_property(l, "light_energy", 0.0, 0.2)
+	var t := create_tween().set_parallel()
+	t.tween_property(env, "ambient_light_energy", 0.03, 0.6)
+	t.tween_property(moon, "light_energy", 0.0, 0.6)
+	t.tween_property(env, "fog_density", 0.0, 0.6)
+	t.tween_property(env, "background_color", Color("050608"), 0.6)
+	Audio.stop_ambience(1.5)
+	await get_tree().create_timer(1.0).timeout
+	await say(["A tela se apaga. Passos molhados, atrás de você."])
+	# O Esquecido entra pela porta e anda até A.
+	var s := spawn_stalker()
+	s.hunting = false
+	s.appear(LAB_DOOR + Vector3(0, 0, -1.2), 0.6)
+	Ui.set_dread(0.7)
+	a.face("down")
+	cam.target = s
+	await s.walk_to(a.global_position + Vector3(-1.5, 0, 0.4), 1.1)
+	a.face("left")
+	cam.target = a
 	await say([
-		"A tela se apaga. Um bipe. Outro. O ritmo de um coração.",
-		"?: Acorde...",
-		"a: Eu estou ouvindo. Eu estou aqui.",
+		"?: Chega. Você já leu o bastante.",
+		"a: Quem é você?",
 	])
-	Audio.stop_ambience(3.0)
-	await Ui.fade_out(2.5)
-	await Ui.narrate(["[color=#ffffff]AINDA HÁ ESPERANÇA[/color]"], UiTheme.INK, 64)
+	Audio.sfx("dread_sting", -2.0)
+	Ui.flash(Color(0.5, 0.0, 0.02), 0.5)
+	s.reveal()
+	Build.omni(geo, s.global_position + Vector3(0.3, 2.0, 0.9), Color("c0303a"), 1.4, 4.0, false, true)
+	Ui.set_dread(0.95)
+	await get_tree().create_timer(1.2).timeout
+	await say([
+		"A mão desce devagar. O rosto é o seu.",
+		"Os olhos fundos. A mão vermelha. Não é o seu sangue.",
+		"?: Eu sou o que você decidiu esquecer.",
+		"?: Lá fora tem dois leitos. O %d e o %d. Um deles não vai acordar." % [Game.number_a, Game.number_b],
+		"?: Aqui dentro, ninguém morreu. Aqui, a culpa não é sua.",
+		"?: Fica. Eu seguro a mão no seu rosto. Para sempre.",
+	])
+	# B aparece na porta da UTI.
+	var b := party.b
+	b.process_mode = Node.PROCESS_MODE_INHERIT
+	b.collision_layer = 2
+	b.teleport(LAB_DOOR + Vector3(0.8, 0, -0.6))
+	b.visible = true
+	Audio.sfx("door_open", -6.0)
+	Ui.set_dread(0.3)
+	await b.walk_to(a.global_position + Vector3(1.5, 0, 0.6), 2.0)
+	b.face("left")
+	await say([
+		"b: %s." % Game.name_a,
+		"b: Olha para mim. Não para isso.",
+		"b: Naquela noite eu gritei para você sair do carro. Você saiu. Era tudo o que eu queria.",
+		"b: Agora eu grito de novo. Sai daqui. Acorda.",
+		"?: Se acordar, vai lembrar. Todo dia. Da ponte, da água, da chave.",
+		"b: Vai doer. E você vai continuar mesmo assim.",
+	])
+	if Game.all_memories():
+		await say(["b: Você achou todas. Todas as partes daquela noite. Não precisa mais fugir de nenhuma."])
+	var pick := await Ui.choose("O que você faz?", ["Lembrar", "Esquecer"])
+	if pick == 0:
+		Game.ending = "hope" if Game.all_memories() else "remember"
+		await say([
+			"a: Eu lembro.",
+			"a: Fui eu que dirigi. Eu não entreguei a chave. Eu fechei os olhos.",
+			"a: E %s abriu o meu cinto." % Game.name_b,
+		])
+		Audio.sfx("flash", -4.0)
+		s.vanish(1.5)
+		await Ui.whiteout(2.5)
+	else:
+		Game.ending = "forget"
+		await say(["a: Eu não quero lembrar."])
+		Audio.sfx("whisper_many", -4.0)
+		b.visible = false
+		s.reveal()
+		await s.walk_to(a.global_position + Vector3(0, 0, 0.5), 0.8)
+		await say(["Uma mão fria cobre o seu rosto. Não dói. Não pesa. Não há mais nada para lembrar."])
+		await Ui.fade_out(2.0)
+	Ui.set_dread(0.0, true)
 	finish()
 
 
@@ -571,4 +785,33 @@ func _debug_lab() -> void:
 	_stage = 4
 	_lab_door.open()
 	party.a.teleport(Vector3(18.0, 0, -12.0))
+	cam.snap()
+
+
+func _debug_reveal() -> void:
+	_debug_lab()
+	env.ambient_light_energy = 0.08
+	moon.light_energy = 0.05
+	env.background_color = Color("050608")
+	for l in _lab_lights.slice(1):
+		l.light_energy = 0.0
+	var s := spawn_stalker()
+	env.ambient_light_energy = 0.03
+	env.fog_density = 0.0
+	moon.light_energy = 0.0
+	s.appear(party.a.global_position + Vector3(-1.5, 0, 0.4), 0.0)
+	s.reveal()
+	Build.omni(geo, s.global_position + Vector3(0.3, 2.0, 0.9), Color("c0303a"), 1.4, 4.0, false, true)
+	party.b.process_mode = Node.PROCESS_MODE_INHERIT
+	party.b.visible = true
+	party.b.teleport(party.a.global_position + Vector3(1.5, 0, 0.6))
+	cam.snap()
+
+
+func _debug_hospital() -> void:
+	for i in 4:
+		_hosp[i].visible = true
+	for l in _warm_lights:
+		l.light_energy = 0.0
+	party.a.teleport(BED + Vector3(1.5, 0, 3.5))
 	cam.snap()

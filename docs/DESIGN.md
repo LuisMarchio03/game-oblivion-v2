@@ -1,24 +1,97 @@
 # OBLIVION — Documento de design
 
 Remake em Godot 4.7 do mini game de enigmas "Oblivion" (versão de navegador, 2023,
-Sistemas de Informação). Mantém a história, o tom e os enigmas originais; completa o que
-faltava (enigmas 1–3, masmorra, fase branca e caça ao tesouro dentro do jogo).
+Sistemas de Informação). Jogo de **terror, suspense e enigmas**. Mantém os enigmas originais e
+as respostas; a história foi reescrita para ter uma tragédia concreta por trás de cada lugar,
+uma ameaça que caça o jogador e um final com escolha.
 
 ## Pilares
 
 - **Dois personagens, um jogador.** O jogador controla os dois (troca com `Tab`). Cada
-  personagem só lê o que ele próprio encontrou: o diário é por personagem. A pergunta fica
-  com um e a chave com o outro, como no original, em que a dupla precisava conversar.
-  O bloco de notas também é
-  separado por personagem: para passar informação de um para o outro, o jogador usa papel
-  e caneta de verdade, como no original.
-- **HD-2D.** Cenários 3D low-poly com textura pixel (filtro nearest), personagens e
-  vegetação em sprite 2D com billboard, neblina volumétrica, glow, profundidade de campo
-  tilt-shift e câmera fixa em ângulo de ~40°. Paleta noturna azulada (herdada da arte
-  original) e fase final branca.
-- **Terror psicológico, não gore.** Sussurros, "SAIA!", rosto com a mão de sangue (arte
-  original reaproveitada), jumpscares raros e avisados pelo som.
-- **Mensagem final:** "Ainda há esperança. Esteja no controle da sua vida."
+  personagem só lê o que ele próprio encontrou: o diário e o bloco de notas são por personagem.
+  A pergunta fica com um e a chave com o outro. Para passar informação de um para o outro, o
+  jogador usa papel e caneta de verdade, como no original.
+- **Terror que tem regra.** O Esquecido caça quem fica sozinho, patrulha e persegue; errar um
+  enigma apaga as luzes; esconder-se e correr salvam. Nada de gore: sangue só na mão.
+- **O hospital vaza para o sonho.** Bipes, chiado de rádio e vozes clínicas (legenda fria no
+  alto da tela) contam, aos poucos, o que aconteceu fora do pesadelo.
+- **Cada lugar é um pedaço daquela noite.** O jogador entende a história montando os lugares,
+  as vozes do hospital e as 8 lembranças escondidas — nunca por sermão.
+- **HD-2D.** Cenários 3D low-poly com textura pixel, sprites billboard, neblina volumétrica,
+  câmera fixa a ~40°. Paleta noturna azulada; fase final branca que vira hospital.
+
+## A história de verdade (o que o jogador descobre)
+
+A (nome digitado, padrão "Ana") e B (padrão "Leo") são amigos desde crianças. Na noite do
+aniversário de B, a festa foi na casa da família de B (a casa dos capítulos 5–7).
+
+1. A tomou dois comprimidos do próprio remédio para dormir (a cabeça doía) e, depois, bebeu o
+   que alguém ofereceu. A bula dizia "não dirija".
+2. B pediu a chave do carro: "Vamos embora. Eu dirijo." A não entregou. Empurrou. "Eu sei dirigir."
+3. Às 3:50, na estrada, B trocava a música e cantava alto, desafinado de propósito, para A não
+   dormir. "Olha pra estrada."
+4. **Às 4:15**, A fechou os olhos por um segundo. O carro saiu da ponte e caiu no riacho (o
+   riacho do capítulo 1).
+5. Debaixo d'água, o cinto de A não abria. B abriu por A e empurrou A pela janela quebrada,
+   gritando **"SAIA!"**. A subiu. B não.
+6. Os bombeiros tiraram os dois do rio. Os dois estão em coma no mesmo hospital: A no **leito
+   `number_a`**, B no **leito `number_b`** (os números aleatórios que cada um "sente afinidade").
+7. O pesadelo é a cabeça de A tentando **esquecer** (oblivion) que a culpa foi de A.
+
+O **"SAIA!"** sussurrado pela casa não é ameaça: é B, naquela noite, salvando A. O jogador
+descobre isso só na lembrança 7 e no final.
+
+### O Esquecido
+
+Figura alta e magra, com o moletom de A encharcado, cabelo escorrido, e **a mão de sangue
+cobrindo o rosto** (a arte original "rosto com a mão de sangue" é o susto dele). É a parte de A
+que quer esquecer. Aparece em todo capítulo, cada vez mais perto e mais ousado. Quando alcança
+alguém, sussurra "esqueça". No capítulo 9, abaixa a mão: o rosto é o de A.
+
+Regras (ver `scripts/core/stalker.gd` e `LEVEL_GUIDE.md`):
+- **Quem fica sozinho é caçado** (`lonely_watch`): quem segura uma placa/roda longe do parceiro
+  ouve sussurros, depois ele surge atrás e anda até a vítima. Alcançou: susto e a vítima solta
+  o que segurava.
+- **Patrulha** (cap. 2, 4, 7): anda por uma rota, enxerga em cone, paredes bloqueiam a visão.
+  Correr foge; esconderijos despistam. Alcançou: susto e os dois voltam ao último ponto seguro.
+- **Errar custa** (`dread_light`): cada erro apaga uma luz perto do enigma; o 3º erro chama ele.
+
+### A voz que imita B
+
+Às vezes uma fala aparece com o nome de B, num tom errado (`"x: ..."`), pedindo para ficar,
+para não acordar, para desistir. Depois, B de verdade diz que não falou nada.
+
+### As 8 lembranças (uma escondida por capítulo, 1 a 8)
+
+Só A pode tocar (são de A). Contam a noite em ordem. Com as 8, o final bom fica disponível.
+Texto exato (use `%s` = `Game.name_b`):
+
+| id | Cap. | Título | Texto |
+|---|---|---|---|
+| m1 | 1 | A festa | "A música estava alta demais. Alguém pôs um copo na minha mão.\n\n%s me puxou pelo braço: \"Vamos embora. Eu dirijo.\"\n\nEu ri. Eu disse que estava bem." |
+| m2 | 2 | A chave | "%s tentou tirar a chave do meu bolso. Eu empurrei.\n\n\"Eu sei dirigir. Eu sempre sei.\"\n\nNinguém ficou do meu lado. Nem eu." |
+| m3 | 3 | Os comprimidos | "A cabeça doía. Tomei dois do meu remédio, o de dormir, porque era o que tinha na bolsa.\n\nDepois o copo. Depois outro.\n\nA bula dizia: não dirija." |
+| m4 | 4 | A estrada | "Três e cinquenta da manhã. %s trocou a música para eu não dormir e cantou alto, desafinando de propósito.\n\n\"Olha pra estrada. Olha pra estrada.\"" |
+| m5 | 5 | A curva | "Eu fechei os olhos só por um segundo.\n\nSó um.\n\nQuando abri, a ponte vinha na nossa direção e %s gritava o meu nome." |
+| m6 | 6 | A água | "Frio. Escuro. A água entrando pelo painel.\n\nO cinto não abria. Eu puxava e ele não abria.\n\nAí duas mãos abriram por mim." |
+| m7 | 7 | Saia | "\"SAIA!\"\n\n%s me empurrou pela janela quebrada. Eu subi. Eu respirei.\n\nOlhei para baixo. Os faróis ainda estavam acesos lá no fundo.\n\n%s não subiu." |
+| m8 | 8 | Depois | "Na margem, gritei o nome de %s até a voz acabar.\n\nDepois eu decidi não lembrar.\n\nÉ mais fácil ter medo de um monstro do que de mim." |
+
+### Vozes do hospital (uma ou duas por capítulo, via `bleed`)
+
+| Cap. | Linhas |
+|---|---|
+| 1 | "...leito `number_a`, retirado do rio pelos bombeiros às quatro e quarenta." · "Hipotermia. Pupilas reagindo." |
+| 2 | "Escala de Glasgow: seis." · "A família do outro paciente está no corredor. Ainda não." |
+| 3 | "Horário do acidente, segundo a perícia: quatro e quinze." |
+| 4 | "Toxicológico positivo. Benzodiazepínico e álcool." · "Quem estava dirigindo?" |
+| 5 | "O paciente do `number_a` fala dormindo. Repete sempre a mesma palavra." · "Saia." |
+| 6 | "Pode conversar. Dizem que eles escutam." · "Fala o nome. Fala do que tem medo." |
+| 7 | "Leito `number_b` teve uma parada às três. Conseguimos reverter." |
+| 8 | "Leito `number_b` entrando em falência. Chamem a família." |
+| 9 | O cenário inteiro vira o hospital. |
+
+Nunca use nome de personagem nas vozes do hospital: só números de leito.
 
 ## Controles
 
@@ -26,139 +99,160 @@ faltava (enigmas 1–3, masmorra, fase branca e caça ao tesouro dentro do jogo)
 |---|---|---|
 | Mover | WASD / setas | analógico esquerdo |
 | Correr | Shift | RB |
-| Interagir | E / Enter / Espaço | A |
+| Interagir / sair do esconderijo | E / Enter / Espaço | A |
 | Trocar personagem | Tab | Y |
 | Diário | J | Select/Back |
 | Pausa | Esc | Start |
 
 ## Estrutura
 
-`Menu → Nomes → Regras → Introdução → Cap. 1 … Cap. 9 → Final → Créditos`
+`Menu → Nomes → Regras → Introdução → Cap. 1 … Cap. 9 → Escolha → Final (3) → Créditos`
 
-Save automático no início de cada capítulo (`user://save.json`); o menu oferece "Continuar".
-Cada enigma tem **dicas progressivas** (botão "Dica" na interface do enigma e no diário).
-Respostas são normalizadas: maiúsculas, sem acento, sem espaço e sem pontuação.
+Save automático no início de cada capítulo (`user://save.json`), incluindo as lembranças.
+Cada enigma tem **dicas progressivas**. Respostas normalizadas: maiúsculas, sem acento, sem
+espaço e sem pontuação.
 
 ## Personagens
 
-- **A** (nome digitado pelo jogador, padrão "Ana"): segue sempre pela **esquerda**.
-- **B** (nome do parceiro, padrão "Leo"): segue sempre pela **direita**.
-- Cada um recebe um número aleatório de 10 a 99 ("uma estranha afinidade com o número xx").
-  O número volta no final: é o leito do hospital.
+- **A**: segue sempre pela **esquerda**. Moletom cinza (o mesmo do Esquecido).
+- **B**: segue sempre pela **direita**. Jaqueta verde-escura.
+- Números aleatórios de 10 a 99 = leitos do hospital. Nunca atribua gênero a A ou B no texto.
 
-## Capítulos e respostas
+## Introdução
 
-### Introdução
-"Sua cabeça dói..." / o nome digitado se desfaz na tela / "Você não se lembra do seu nome" /
+Preto. Água borbulhando, um baque abafado, um grito distante: "SAIA!". Um bipe.
+"Sua cabeça dói..." / "Você não se lembra do seu nome." / os nomes se desfazem /
 "mas sente uma estranha afinidade com o número XX".
 
-### Cap. 1 — A Clareira (novo, tutorial)
-A e B acordam em margens opostas de um riacho. A ponte levadiça está erguida.
-- Lado de B: pedra pintada com três círculos, verde pequeno, vermelho médio e azul grande,
-  com a inscrição "Do menor ao maior".
-- Lado de A: três alavancas (vermelha, verde, azul).
-- **Resposta:** puxar verde → vermelha → azul. Ordem errada reseta as alavancas.
+## Capítulos, enigmas e terror
 
-### Cap. 2 — O Cemitério (novo)
-B fica dentro do cemitério murado; A fica na porta da capela.
-- Seis lápides numeradas de I a VI, espalhadas fora de ordem, formam um acróstico:
-  I "Luz nenhuma alcança este chão" · II "Esquecemos o caminho de volta" ·
-  III "Mas a memória não morreu" · IV "Busque o nome que se perdeu" ·
-  V "Rastros de quem já partiu" · VI "Ecoam pelo vale vazio".
-- Porta da capela: cadeado de 6 rodas de letras.
-- **Resposta:** `LEMBRE`.
+Os enigmas e as respostas **não mudam**. Cada capítulo ganha: lugar recontextualizado, pelo menos
+um evento do Esquecido, uma voz do hospital, luzes de erro nos enigmas e a lembrança escondida.
 
-### Cap. 3 — A Capela (novo)
-- Grade levadiça que só fica aberta enquanto alguém pisa na placa: um segura e o outro passa,
-  e do outro lado uma alavanca trava a grade aberta. Ensina a cooperação física.
-- No confessionário há um relógio de bolso parado em **3:15**, com o bilhete "Meu relógio
-  sempre atrasou uma hora. Foi a hora em que eu parti."
-- No altar fica o console do relógio da torre (hora e minuto).
-- **Resposta:** `4:15`. O altar se abre e o espelho mostra a mão de sangue e os números.
+### Cap. 1 — A Clareira (o lugar do acidente)
+A e B acordam em margens opostas de um riacho; a ponte levadiça está erguida.
+- Enigma: pedra de B com três círculos (verde pequeno, vermelho médio, azul grande), "Do menor
+  ao maior". Alavancas de A. **Resposta:** verde → vermelha → azul. Ordem errada reseta.
+- Terror: rio abaixo, perto da câmera, um **carro afundado** no riacho com os dois faróis piscando
+  debaixo d'água (bolhas). Quem chega perto comenta. Quando a ponte desce, a câmera mostra o
+  Esquecido parado entre as árvores do outro lado; um clarão e ele some. "b: Você viu? Tinha
+  alguém ali. Com a mão no rosto."
+- Voz: linhas do cap. 1 ao baixar a ponte. Lembrança m1 escondida do lado de A.
 
-### Cap. 4 — Dois Caminhos (enigma 4 original)
-"Há dois caminhos à frente de vocês. Qual lado cada um seguirá?" A vai pela esquerda e B pela
-direita. Os dois lados se reencontram no portão de ferro, que tem **dois cadeados**.
-- Esquerda (A): porta velha com "GET OUT OF HERE" talhado e um bilhete em **morse**
-  `. ... --.- ..- . -.-. .-`; a caixa de ferramentas do píer guarda a **chave pigpen**.
-- Direita (B): carroça e corpo com um bilhete em **pigpen** (NUNCA); a caixa de ferramentas
-  guarda a **tabela morse**.
-- Cadeado do lado A: `ESQUECA`. Cadeado do lado B: `NUNCA`. Juntos: "NUNCA ESQUEÇA".
+### Cap. 2 — O Cemitério
+B dentro do cemitério murado; A na porta da capela (cadeado de 6 rodas de letras).
+- Lápides I–VI (acróstico): I "Luz nenhuma alcança este chão" · II "Esquecemos o caminho de
+  volta" · III "Mas a memória não morreu" · IV "Busque o nome que se perdeu" · V "Rastros de quem
+  já partiu" · VI "Ecoam pelo vale vazio". **Resposta:** `LEMBRE`.
+- Terror: uma **sétima cova**, de terra fresca, com uma cruz de madeira e o nome de B escrito a
+  giz, sem data. Depois que B lê duas lápides, o Esquecido **patrulha** entre as covas (lento,
+  visão curta); dois esconderijos (mausoléu aberto, atrás do anjo). Luzes de erro no cadeado.
+- Voz: cap. 2. Lembrança m2 do lado de A.
 
-### Cap. 5 — A Casa (enigma 5 original)
-Fachada com "SAIA!" sussurrado. A sobe pela trepadeira (esquerda) e B pela escada (direita).
-- A porta de A mostra uma amostra de cor **lilás** e um teclado hexadecimal. A acha o bilhete
-  "Coordenadas para o CIANO: 0 vermelho, 255 verde, 255 azul".
-- A porta de B mostra uma amostra **ciano**. B acha "Coordenadas para o LILÁS: 177, 156, 217".
+### Cap. 3 — A Capela
+- Grade que só fica aberta enquanto alguém pisa na placa; do outro lado, uma alavanca trava a
+  grade. **Quem fica na placa é caçado** (`lonely_watch`, ~30 s); alcançou: a vítima sai da placa.
+- Confessionário: relógio de bolso parado em **3:15** e o bilhete "Meu relógio sempre atrasou uma
+  hora. Foi a hora em que eu parti." B reconhece o relógio: era do avô de B. A voz falsa de B sai
+  do confessionário pedindo para não acertar o relógio.
+- Console do altar. **Resposta:** `4:15`. O espelho mostra a mão de sangue e os números; por um
+  instante, há **três** figuras no reflexo. Voz: cap. 3. Lembrança m3.
+
+### Cap. 4 — Dois Caminhos
+A pela esquerda, B pela direita; os lados se reencontram no portão de ferro com **dois cadeados**.
+- Esquerda (A): porta com "GET OUT OF HERE" talhado, bilhete em **morse**
+  `. ... --.- ..- . -.-. .-`; a caixa do píer guarda a **chave pigpen**.
+- Direita (B): carroça e **corpo com a jaqueta de B** (mesmo rasgo na manga), bilhete em
+  **pigpen** (NUNCA); a caixa guarda a **tabela morse**. Depois de ler, o corpo mudou de posição.
+- Cadeado de A: `ESQUECA`. Cadeado de B: `NUNCA`. Juntos: "NUNCA ESQUEÇA" (é B quem pede).
+- Terror: o Esquecido **patrulha** a trilha de A (esconderijos: barco virado, barril). Voz falsa
+  de B quando A lê o morse. Voz: cap. 4. Lembrança m4.
+
+### Cap. 5 — A Casa (a casa da festa)
+Fachada com restos de festa (copos, garrafas, faixa "PARABÉNS, `name_b`"). "SAIA!" sussurrado.
+A sobe pela trepadeira (esquerda), B pela escada (direita).
+- Porta de A: amostra **lilás**; A acha "Coordenadas para o CIANO: 0 vermelho, 255 verde, 255 azul".
+- Porta de B: amostra **ciano**; B acha "Coordenadas para o LILÁS: 177, 156, 217".
 - **Respostas:** porta de A `B19CD9`, porta de B `00FFFF` (com ou sem `#`).
+- Terror: o Esquecido olha de uma janela do andar de cima e some quando alguém chega perto; o
+  susto do rosto com a mão (já existente); luzes de erro nas portas. Voz: cap. 5. Lembrança m5.
 
-### Cap. 6 — O Sótão (enigma 6 original, texto reescrito para fechar a conta)
-Contagem: número da linha = número da letra, contando **só letras** (espaços e pontuação não
-contam). O quadro de exemplo mostra "ITS COLD HERE / DONT LEAVE ME: 2 = 4 → T".
-- Lado A: carta de 4 linhas —
+### Cap. 6 — O Sótão
+Contagem: número da linha = número da letra, contando **só letras**. Quadro de exemplo
+"ITS COLD HERE / DONT LEAVE ME: 2 = 4 → T".
+- Carta (lado A), 4 linhas — **texto fixo, não alterar**:
   1 "A noite caiu depressa e a escuridão ficou tão densa que eu mal conseguia respirar"
   2 "Escrevo esta carta na esperança de que você volte para me buscar"
   3 "Estou perdido numa floresta escura e não reconheço nenhum caminho"
   4 "Algo terrível se esconde nas sombras e sussurra o meu nome todas as noites"
-- Lado B: placa `1=40 2=34 3=49 4=32` → a porta de **B** pede `NOME`.
-- Lado B: canção de ninar —
-  1 "Dorme criança que a lua já vem" 2 "Fecha os olhos e não conte a ninguém"
-  3 "O que se esconde debaixo da cama" 4 "Espera acordado e chama por quem ama"
-- Lado A: placa `1=4 2=21 3=14 4=22` → a porta de **A** pede `MEDO`.
+- Placa de B `1=40 2=34 3=49 4=32` → porta de **B** pede `NOME`.
+- Canção (lado B): 1 "Dorme criança que a lua já vem" 2 "Fecha os olhos e não conte a ninguém"
+  3 "O que se esconde debaixo da cama" 4 "Espera acordado e chama por quem ama".
+- Placa de A `1=4 2=21 3=14 4=22` → porta de **A** pede `MEDO`.
+- Terror: passos e arranhões do outro lado da parede de tábuas; desenhos infantis de dois bonecos
+  num carro debaixo d'água; a voz falsa de B pela parede; num apagão, o Esquecido aparece parado
+  num canto e some quando a luz volta. Voz: cap. 6. Lembrança m6.
 
-### Cap. 7 — O Saguão (enigma 7 original)
-"Vocês se encontram novamente. Se separar pode ser perigoso." A porta do subterrâneo tem 4
-cadeados (I–IV) e duas rodas que precisam girar **juntas**: um personagem segura uma e o
-outro gira a outra.
-- **Quarto (I):** na parede, `VLOHQFLR`. Na geladeira da cozinha, "CÉSAR DISSE: +3".
-  O armário pede `SILENCIO`.
-- **Cozinha (II):** alvo de dardos com 5 dardos. Os setores alternam vermelho e preto. Bilhete:
-  "Mamãe só contava os dardos no vermelho, e somava tudo." Dardos no vermelho: 17, 6, 19
-  (no preto: 20, 3). A despensa pede `42`.
-- **Escritório (III):** piano. Na mesa, a carta do pai com a tabela C D E F G A B =
-  DÓ RÉ MI FÁ SOL LÁ SI. Sob o travesseiro do quarto, "Eles me destruíram sem Dó / O Sol já
-  não nasce como antes / Não quero mais voltar Lá / Eles apenas Fa-zem chacota de mim".
-  O piano pede **C G A F**.
-- **Banheiro (IV):** o espelho embaçado escreve palavras caractere por caractere, e ACORDE
-  é a que mais se repete. Bilhetes: "Repetir é a chave para o sucesso", "Minhas palavras são
-  construídas caractere por caractere" e "Aquele que mais se repete, ele está certo".
-  O armário pede `ACORDE`.
+### Cap. 7 — O Saguão (a casa da família de B)
+"Vocês se encontram novamente. Se separar pode ser perigoso." Porta do subterrâneo com 4
+cadeados (I–IV) e duas rodas que precisam girar **juntas**.
+- **Quarto (I):** o quarto de infância de B. Parede `VLOHQFLR`; geladeira "CÉSAR DISSE: +3".
+  Armário `SILENCIO`.
+- **Cozinha (II):** alvo de dardos; "Mamãe só contava os dardos no vermelho, e somava tudo."
+  Vermelho 17, 6, 19 (preto 20, 3). Despensa `42`.
+- **Escritório (III):** piano; carta do pai com C D E F G A B = DÓ RÉ MI FÁ SOL LÁ SI; sob o
+  travesseiro "Eles me destruíram sem Dó / O Sol já não nasce como antes / Não quero mais voltar
+  Lá / Eles apenas Fa-zem chacota de mim". Piano **C G A F**.
+- **Banheiro (IV):** espelho embaçado; ACORDE é a que mais se repete. Armário `ACORDE`.
+- Terror: depois da primeira chave, o Esquecido **patrulha** o saguão e entra nos cômodos; um
+  esconderijo em cada cômodo e no saguão. Voz falsa de B no espelho. Voz: cap. 7. Lembrança m7.
 
-### Cap. 8 — Ascendência (LV 8 original)
-Masmorra com um monstro acorrentado (a esfinge): "O que é, o que é: quanto mais se tem,
-menos se vê?" → `ESCURIDAO` (aceita também ESCURO, TREVAS, BREU). As correntes se partem, tudo
-fica branco e o parceiro some. Na **fase branca**, calma, o jogador controla só A ("Não há
-ninguém para chamar."); junta 3 memórias (luzes) e a voz pede "Acorde...".
+### Cap. 8 — Ascendência
+Masmorra: dois corredores paralelos, duas placas que precisam de peso ao mesmo tempo. A esfinge
+acorrentada fala do que A fez ("Você trouxe `name_b` até aqui. Como trouxe até a ponte.").
+"O que é, o que é: quanto mais se tem, menos se vê?" → `ESCURIDAO` (aceita ESCURO, TREVAS, BREU).
+Errar: ameaças da esfinge e luzes de erro nas tochas. Acertou: tudo fica branco e B some
+(voz do cap. 8 com a linha reta do monitor). **Fase branca:** só A; três lembranças de B (luzes);
+a cada uma, o Esquecido aparece mais perto no branco; na terceira, logo atrás de A. Lembrança m8
+na masmorra.
 
-### Cap. 9 — Ainda Há Esperança (LV 9 original, caça ao tesouro dentro do jogo)
-Casa branca. As 4 pistas impressas originais viram locais da casa; cada local entrega uma
-frase e a pista seguinte.
-1. "Aonde eles se alimentam, desça à esquerda, siga até a escuridão, aonde guardamos nossos
-   carros, aonde jogamos os entulhos" → garagem. AQUELE QUE TE DOPA: *seus remédios te cegam*.
-2. "Local de conhecimento, antes por pergaminhos, agora por impressão; após este local, à
-   esquerda, aquela que purifica o ar, a primeira delas" → primeira planta ao sair da
-   biblioteca. AQUELE QUE TE INDUZ: *suas drogas te traem*.
-3. "Símbolo de valor monetário, ícone nacional, arte; olhe para a onça-pintada e sinta orgulho
-   de sua nação; na escuridão me escondo; aquela que purifica o ar, à esquerda, no fundo" →
-   quadro da nota de R$ 50 e a planta no canto escuro. AQUELE QUE TE SEDUZ: *suas influências
-   te destroem*.
-4. "No início ou no fim, acima ou abaixo, à vista ou escondido... no local mais óbvio, volte ao
-   local do seu pesadelo" → a cama onde A acordou. AQUELE QUE TE SEPARA: *seu orgulho te cega*.
-- **Laboratório:** um terminal pede as 4 frases. Ao completar: "AINDA HÁ ESPERANÇA".
-- **Final:** um monitor cardíaco, "Leito XX" e o texto final. "Obrigado por jogar! Esteja no
-  controle da sua vida." Seguem os créditos.
+### Cap. 9 — Quatro e Quinze
+Casa branca que, aos poucos, vira hospital (suportes de soro, cortinas, macas, lâmpadas frias
+piscando; ambiente passa de `amb_white` para `amb_hospital`). O Esquecido aparece no fim dos
+corredores e some. Caça ao tesouro com as 4 pistas originais:
+1. Garagem (cozinha → escada à esquerda → escuridão → entulho). AQUELE QUE TE DOPA: *seus
+   remédios te cegam*.
+2. Primeira planta à esquerda ao sair da biblioteca. AQUELE QUE TE INDUZ: *suas drogas te traem*.
+3. Quadro da nota de R$ 50 (onça-pintada) → planta no canto escuro, fundo à esquerda da galeria.
+   AQUELE QUE TE SEDUZ: *suas influências te destroem*.
+4. A cama onde A acordou. AQUELE QUE TE SEPARA: *seu orgulho te cega*.
+- **Laboratório:** o terminal pede as 4 frases (respostas inalteradas). Ao completar, as luzes
+  apagam. O Esquecido entra, anda até A e **abaixa a mão: o rosto é o de A**. "?: Você não
+  precisa lembrar. Lá fora, `name_b` está morrendo por sua causa. Aqui, não." Então B aparece:
+  "b: Eu gritei para você sair daquele carro. Agora eu grito de novo."
+- **Escolha:** "Lembrar" ou "Esquecer".
+
+## Finais
+
+- **Esquecer** (`forget`): o branco fica bonito, B sorri, o sol não se põe; o monitor desacelera
+  até a linha reta. "LEITO `number_a` — 04:15". "Existem outros finais."
+- **Lembrar** (`remember`, menos de 8 lembranças): A acorda. O leito `number_b` ao lado está vazio;
+  uma enfermeira dobra o cobertor. No criado-mudo, um relógio de bolso parado em 3:15. A limpa o
+  vapor da janela: do lado de dentro do vidro, a marca de uma mão vermelha.
+- **Ainda há esperança** (`hope`, lembrou com as 8): A acorda. B respira por um tubo no leito
+  `number_b`; o monitor de B responde ao de A. Os dedos de B se fecham nos de A. A escreve no vapor
+  da janela: NUNCA ESQUEÇA.
+- Créditos: nome dos dois, tempo, lembranças n/8, final alcançado e, por último, a mensagem do
+  autor: "Esteja no controle da sua vida."
 
 ## Estrutura técnica
 
 ```
-project.godot
-scripts/autoload/  game.gd (estado, save, opções) · audio.gd · ui.gd (camada de UI global)
-scripts/core/      party, player, interactable, camera, level_base, builder (geometria)
-scripts/ui/        menu, diário, pausa, opções, nota, diálogo, transição
-scripts/puzzles/   interfaces de enigma (código, roda de letras, relógio, piano, dardos...)
-scripts/levels/    ch01.gd … ch09.gd (cada capítulo monta a sua geometria em código)
-scenes/            main.tscn, levels/chNN.tscn
-assets/            sprites, textures, audio, fonts (OFL), legacy (arte original reaproveitada)
-tools/             gen_art.py, gen_audio.py (arte e áudio gerados proceduralmente)
-tests/             testes headless das respostas e do carregamento das cenas
+scripts/autoload/  game.gd (estado, save, lembranças, final) · audio.gd · ui.gd (medo, vozes, escolha)
+scripts/core/      party, character (esconder), stalker (O Esquecido), level_base (terror), build
+scripts/ui/        menu, diário, pausa, opções, nota, escolha, final
+scripts/puzzles/   interfaces de enigma (erro emite Game.puzzle_failed)
+scripts/levels/    ch01.gd … ch09.gd
+tools/             gen_art.py (inclui forgotten), gen_audio.py (inclui sons de terror e amb_hospital)
+tests/             respostas, carga das cenas, compilação
 ```

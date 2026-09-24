@@ -882,6 +882,93 @@ def gen_monster():
     save(sheet([monster_frame(0), monster_frame(1)], 2), SPR / "monster.png")
 
 
+# ---------------------------------------------------------------------------
+# O Esquecido: a figura alta com a roupa de A e a mão de sangue no rosto
+# ---------------------------------------------------------------------------
+
+F_SKIN = ramp("5c565e", "847c84", "a8a0a6", "c4bec2")
+F_HAIR = ramp("08070c", "121018", "1c1924", "2c2836")
+F_TOP = ramp("24252e", "34363f", "464853", "5c5e6a")
+F_LEGS = ramp("0e1220", "181e30", "222a42", "303a58")
+F_SHOE = ramp("3a3a42", "5a5a64", "7a7a84", "9a9aa4")
+F_BLOOD = ramp("2a0406", "4e080c", "7a1016", "a41c20")
+
+
+def forgotten_frame(f):
+    """f: 0 parado (mão no rosto), 1-2 andando, 3 revelado (mão abaixada, rosto de A)."""
+    W, H = 40, 80
+    sp = Sprite(W, H)
+    step = {0: 0, 1: 2, 2: -2, 3: 0}[f]
+    # pernas longas e finas
+    for (hx, fx, dz) in ((17, 16 + step, 0), (23, 24 - step, 1)):
+        leg = m_capsule(W, H, hx, 50, fx, 73, 2.2)
+        sp.part(leg, F_LEGS if dz else darker(F_LEGS), light="l", dark="rb", sep=True)
+        sp.part(m_rect(W, H, fx - 2, 73, fx + 3, 76), F_SHOE, light="t", dark="b", sep=True)
+    # moletom comprido, ombros caídos
+    torso = m_poly(W, H, [(12, 27), (28, 27), (27, 40), (26, 52), (14, 52), (13, 40)])
+    sp.part(torso, F_TOP, light="lt", dark="rb", lw=1, dw=2, sep=True)
+    sp.recolor(m_line(W, H, 20, 30, 20, 50), F_TOP[1])            # zíper
+    sp.recolor(m_rect(W, H, 15, 43, 25, 46) & torso, F_TOP[1])     # bolso
+    sp.part(m_ellipse(W, H, 20, 27, 7, 3), F_TOP, light="t", dark="b", sep=True)  # capuz caído
+    # molhado: pingos escuros na barra
+    for (x, y) in ((15, 53), (19, 54), (24, 53), (26, 55)):
+        sp.px(x, y, F_TOP[0])
+    # pescoço e cabeça
+    sp.part(m_rect(W, H, 18, 21, 22, 26), F_SKIN, light="l", dark="r")
+    head = m_ellipse(W, H, 20, 14, 5.8, 7.2)
+    sp.part(head, F_SKIN, light="l", dark="rb", lw=1, dw=2, sep=True)
+    # cabelo molhado, colado e comprido (o corte de A, escorrido)
+    hair = m_ellipse(W, H, 20, 11, 6.8, 6.2) & (coords(W, H)[1] < 12)
+    hair |= m_poly(W, H, [(13, 10), (15, 10), (15, 27), (13, 29)])
+    hair |= m_poly(W, H, [(25, 10), (27, 10), (27, 29), (25, 27)])
+    sp.part(hair, F_HAIR, light="t", dark="b", sep=True)
+    for x in (14, 16, 24, 26):
+        sp.px(x, 29 + (x % 3), F_HAIR[1])
+    if f == 3:
+        # rosto de A: olhos fundos e pretos, lágrimas escuras
+        for ex in (17.5, 22.5):
+            sp.fill(m_ellipse(W, H, ex, 14, 1.6, 1.9), (6, 4, 8))
+            sp.recolor(m_line(W, H, ex, 16, ex - 0.5, 22), F_BLOOD[1])
+        sp.recolor(m_line(W, H, 18, 19, 22, 19), F_SKIN[0])
+        sp.px(20, 17, F_SKIN[1])
+    else:
+        # o rosto: só um trecho do queixo aparece sob a mão
+        sp.recolor(m_line(W, H, 18, 20, 22, 20), F_SKIN[0])
+    # braço esquerdo pendurado, dedos compridos
+    swing = -step * 0.6
+    sp.part(m_chain(W, H, [(12, 29), (10 + swing, 43), (10 + swing * 1.5, 58)], 1.8), F_TOP, light="l", dark="r", sep=True)
+    hand_l = (10 + swing * 1.5, 60)
+    sp.part(m_ellipse(W, H, hand_l[0], hand_l[1], 1.8, 2.2), F_SKIN, light="l", dark="rb", sep=True)
+    for dx in (-1, 0, 1):
+        sp.part(m_line(W, H, hand_l[0] + dx, 62, hand_l[0] + dx * 1.5, 66), F_SKIN, light="", dark="", flat=True)
+    if f == 3:
+        # braço direito também caído, a mão toda vermelha
+        sp.part(m_chain(W, H, [(28, 29), (30 - swing, 43), (30, 58)], 1.8), F_TOP, light="l", dark="r", sep=True)
+        sp.part(m_ellipse(W, H, 30, 60, 2.0, 2.4), F_BLOOD, light="l", dark="rb", sep=True)
+        for dx in (-1, 0, 1):
+            sp.part(m_line(W, H, 30 + dx, 62, 30 + dx * 1.5, 66), F_BLOOD, light="", dark="", flat=True)
+        for y in (68, 71):
+            sp.px(31, y, F_BLOOD[2])
+    else:
+        # braço direito dobrado, a palma cobrindo o rosto inteiro
+        sp.part(m_chain(W, H, [(28, 29), (32, 34), (27, 22), (24, 18)], 1.9), F_TOP, light="l", dark="r", sep=True)
+        palm = m_ellipse(W, H, 20.5, 14, 4.8, 5.2)
+        sp.part(palm, F_BLOOD, light="lt", dark="rb", sep=True)
+        for i, fx in enumerate((16.5, 19, 21.5, 24)):  # dedos abertos subindo pela testa
+            sp.part(m_capsule(W, H, fx + 0.5, 10, fx - 0.5 + i * 0.3, 5 + abs(i - 1.5), 0.9), F_BLOOD, light="l", dark="r", sep=True)
+        sp.part(m_capsule(W, H, 24, 16, 27, 12, 1.0), F_BLOOD, light="l", dark="r", sep=True)  # polegar
+        sp.recolor(m_line(W, H, 17, 15, 23, 14), F_BLOOD[1])
+        # sangue escorrendo pelo pulso e pelo queixo
+        for (x, y0, y1) in ((19, 19, 24), (22, 19, 22), (26, 18, 28)):
+            sp.recolor(m_line(W, H, x, y0, x, y1), F_BLOOD[2])
+    sp.outline((6, 4, 10), k=0.2)
+    return sp
+
+
+def gen_forgotten():
+    save(sheet([forgotten_frame(i) for i in range(4)], 4), SPR / "forgotten.png")
+
+
 def gen_corpse():
     """Body lying face-down, seen from the ~40 degree game camera (its back)."""
     W, H = 64, 32
@@ -2132,6 +2219,7 @@ def main():
         gen_portrait(CHAR_A)
         gen_portrait(CHAR_B)
         gen_monster()
+        gen_forgotten()
         gen_corpse()
         gen_crow()
     if "props" in groups:

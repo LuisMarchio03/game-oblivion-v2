@@ -54,6 +54,7 @@ func fail(text := "Nada acontece.") -> void:
 	_msg.add_theme_color_override("font_color", UiTheme.BLOOD)
 	_msg.text = text
 	shake()
+	Game.puzzle_failed.emit()
 
 
 func succeed(text := "") -> void:

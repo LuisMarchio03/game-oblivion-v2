@@ -154,6 +154,16 @@ func _new_game() -> void:
 func _intro() -> void:
 	Ui.set_black(true)
 	await get_tree().create_timer(1.0).timeout
+	# Água, um baque abafado, alguém gritando lá fora. Depois, só um bipe.
+	Audio.sfx("splash", -4.0, 0.7)
+	Audio.sfx("dart_thud", -2.0, 0.5)
+	await get_tree().create_timer(1.2).timeout
+	Audio.sfx("whisper_saia", 0.0)
+	await Ui.narrate(["[color=#a3202a]SAIA![/color]"], UiTheme.INK, 72)
+	Audio.sfx("monitor_beep", -8.0)
+	await get_tree().create_timer(1.4).timeout
+	Audio.sfx("monitor_beep", -8.0)
+	await get_tree().create_timer(1.0).timeout
 	Audio.sfx("heartbeat", -4.0)
 	await Ui.narrate(["Sua cabeça dói..."])
 	await Ui.narrate([

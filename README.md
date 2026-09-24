@@ -1,6 +1,6 @@
 # OBLIVION
 
-Jogo de enigmas em HD-2D (Godot 4.7) sobre dois amigos presos num pesadelo. Remake do
+Jogo de terror, suspense e enigmas em HD-2D (Godot 4.7) sobre dois amigos presos num pesadelo. Remake do
 mini game de navegador de 2023. Enredo, capítulos e respostas: [`docs/DESIGN.md`](docs/DESIGN.md).
 
 ## Jogar
@@ -42,6 +42,7 @@ uv run --with numpy --with scipy python tools/gen_audio.py
 godot --headless --path . res://tests/check_scripts.tscn   # compila todos os scripts
 godot --headless --path . res://tests/test_answers.tscn    # confere as respostas dos enigmas
 godot --headless --path . res://tests/smoke.tscn           # carrega cada capítulo
+godot --headless --path . res://tests/stalker_test.tscn    # perseguidor, esconderijo, "sozinho", luz de erro
 tools/shot.sh /tmp/x.png --scene=res://scenes/levels/ch01.tscn   # captura fora da tela (Xvfb)
 ```
 

@@ -41,6 +41,8 @@ func activate(who: String, instant := false) -> void:
 		return
 	if active:
 		active.set_active(false)
+		if active.hidden:
+			Ui.hide_prompt()
 	active = ch
 	ch.set_active(true)
 	cam.target = ch
@@ -75,7 +77,7 @@ func set_switch_enabled(on: bool) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("switch") and Game.can_control() and switch_enabled and active and not active.busy:
+	if event.is_action_pressed("switch") and Game.can_control() and switch_enabled and active and (not active.busy or active.hidden):
 		get_viewport().set_input_as_handled()
 		switch()
 

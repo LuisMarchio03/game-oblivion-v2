@@ -1,10 +1,14 @@
 extends LevelBase
 ## Capítulo 5 — A Casa (enigma 5 original).
-## Fachada de uma casa grande e escura. "SAIA!" sussurrado ao chegar.
-## A sobe pela trepadeira (esquerda) e B pela escada de pedra (direita); cada um
-## chega a uma varanda isolada no 2º andar. A porta de A mostra LILÁS (B19CD9) e
-## A acha as coordenadas do CIANO; a porta de B mostra CIANO (00FFFF) e B acha as
-## coordenadas do LILÁS. Com as duas portas abertas, os dois seguem para o sótão.
+## A casa da família de B, onde foi a festa de aniversário: restos de festa na frente
+## (copos, garrafas, balão murcho, faixa "PARABÉNS, <nome de B>"). "SAIA!" sussurrado ao
+## chegar (o sentido verdadeiro só aparece depois). A sobe pela trepadeira (esquerda) e B
+## pela escada de pedra (direita); cada um chega a uma varanda isolada no 2º andar. A porta
+## de A mostra LILÁS (B19CD9) e A acha as coordenadas do CIANO; a porta de B mostra CIANO
+## (00FFFF) e B acha as coordenadas do LILÁS. Com as duas portas abertas, sobem ao sótão.
+## Terror: o susto do rosto com a mão; depois do "SAIA!", o Esquecido olha de uma janela do
+## 2º andar e some quando alguém chega perto; luzes de erro nas duas portas; vozes do
+## hospital logo depois do "SAIA!"; lembrança m5 no canto escuro a oeste do quintal.
 
 const FACADE_Z := -6.0        # face sul da fachada
 const FLOOR2 := 4.0           # piso do 2º andar / varandas
@@ -14,6 +18,9 @@ const STAIR_X := 11.0
 const LAYER_ONLY_A := 8       # camada que só A enxerga (fecha a escada para A)
 const LILAC := Color8(177, 156, 217)
 const CYAN := Color8(0, 255, 255)
+const WATCH_WIN := Vector2(-3.3, 5.0)   # janela de onde o Esquecido olha (x, base)
+const WATCH_POS := Vector3(-3.3, FLOOR2, -6.55)
+const MEMORY_POS := Vector3(-11.1, 0, -4.9)
 
 var _door_a: Door
 var _door_b: Door
@@ -24,6 +31,12 @@ var _open_a := false
 var _open_b := false
 var _saia_labels: Array[Label3D] = []
 var _docs := {}  # id -> dados (para depuração visual)
+var _watching := false
+var _watch_light: OmniLight3D
+var _watch_glass: MeshInstance3D
+var _banner_read := false
+var _balcony_lights: Array = []
+var _door_lights := {"a": [], "b": []}
 
 
 func _init() -> void:
@@ -55,6 +68,8 @@ func _build() -> void:
 	_build_balcony_a()
 	_build_balcony_b()
 	_build_saia()
+	_build_party()
+	_build_memory()
 	_build_nature()
 
 
@@ -67,6 +82,7 @@ func _build_house() -> void:
 		Rect2(-0.8, 0.0, 1.6, 2.6),
 		Rect2(DOOR_A_X - 0.62, FLOOR2, 1.24, 2.5),
 		Rect2(DOOR_B_X - 0.62, FLOOR2, 1.24, 2.5),
+		Rect2(WATCH_WIN.x - 0.6, WATCH_WIN.y, 1.2, 1.6),
 	])
 	# Laterais, fundos e laje do 2º andar (o interior fica no escuro).
 	Build.box(geo, Vector3(0.4, 8.6, 10), Vector3(-10.0, 4.3, FACADE_Z - 5.0), wall, true)
@@ -108,7 +124,11 @@ func _build_house() -> void:
 	# Janelas (vidro frio emissivo, fraco).
 	for p in [Vector2(-8.3, 1.2), Vector2(-3.6, 1.2), Vector2(3.6, 1.2), Vector2(8.3, 1.2),
 			Vector2(-3.3, 5.0), Vector2(3.3, 5.0), Vector2(-8.9, 5.0), Vector2(8.9, 5.0)]:
-		_window(Vector3(p.x, p.y, FACADE_Z), 0.3 + rng.randf() * 0.35)
+		var glow := 0.3 + rng.randf() * 0.35
+		if p == WATCH_WIN:
+			_watch_window()
+		else:
+			_window(Vector3(p.x, p.y, FACADE_Z), glow)
 
 	# Porta da frente, pregada por dentro, com alpendre.
 	var door_mat := Build.mat("planks_dark", Color(0.8, 0.75, 0.75), 1.0)
@@ -149,7 +169,9 @@ func _build_balcony_a() -> void:
 		"body": "[center]Coordenadas para o CIANO:\n\n0 para o vermelho\n255 para o verde\n255 para o azul[/center]",
 		"style": "blue",
 	}, "Ler bilhete", "a", 1.0)
-	Build.candle(geo, Vector3(x0 + 0.55, FLOOR2 + 0.5, FACADE_Z + 0.45), 0.8, 4.0)
+	var candle := Build.candle(geo, Vector3(x0 + 0.55, FLOOR2 + 0.5, FACADE_Z + 0.45), 0.8, 4.0)
+	# Luzes que o erro na porta de A apaga.
+	_register_door_lights("a", [_balcony_lights.back(), _light_of(candle)])
 
 	# Trepadeira pendurada na frente da varanda.
 	var vx := DOOR_A_X + 1.4
@@ -199,7 +221,9 @@ func _build_balcony_b() -> void:
 		"body": "[center]Coordenadas para o LILÁS:\n\n177 / 156 / 217[/center]",
 		"style": "blue",
 	}, "Ler bilhete", "b", 1.0)
-	Build.candle(geo, Vector3(9.25, FLOOR2 + 0.5, FACADE_Z + 0.45), 0.8, 4.0)
+	var candle := Build.candle(geo, Vector3(9.25, FLOOR2 + 0.5, FACADE_Z + 0.45), 0.8, 4.0)
+	# Luzes que o erro na porta de B apaga.
+	_register_door_lights("b", [_balcony_lights.back(), _light_of(candle)])
 
 
 ## Varanda do 2º andar: piso, guarda-corpo, pilares e bloqueios. `gaps` = trechos
@@ -246,7 +270,7 @@ func _balcony(x0: float, x1: float, zf: float, wood: Material, gaps: Array) -> v
 		var bx := x0 + 0.5 + (x1 - x0 - 1.0) * rng.randf()
 		Build.billboard(geo, ["bush", "fern", "bush"][i % 3], Vector3(bx, 0, zf - 0.4), 0.05, 1, 0, Color(0.75, 0.85, 0.9))
 	Build.box(geo, Vector3(0.9, 0.8, 0.8), Vector3(x0 + 1.4, 0.4, zf - 1.0), Build.mat("wood_wall", Color(0.7, 0.7, 0.75)), false, 10.0)
-	Build.omni(geo, Vector3(cx, FLOOR2 + 2.2, zf + 0.6), Color("7e9bd8"), 0.8, 6.0)
+	_balcony_lights.append(Build.omni(geo, Vector3(cx, FLOOR2 + 2.2, zf + 0.6), Color("7e9bd8"), 0.8, 6.0))
 
 
 ## Vão escuro atrás da porta do 2º andar (piso para entrar e a escada estreita).
@@ -312,6 +336,124 @@ func _wall_with_holes(z: float, x0: float, x1: float, y0: float, y1: float, thic
 			cur = max(cur, c[1])
 		if y1 > cur + 0.01:
 			Build.box(geo, Vector3(xb - xa, y1 - cur, thick), Vector3((xa + xb) / 2.0, (cur + y1) / 2.0, z), m, true)
+
+
+## Janela do 2º andar com vidro sujo e um quartinho atrás: de lá o Esquecido olha.
+func _watch_window() -> void:
+	var frame := Build.mat("planks_dark", Color(0.6, 0.6, 0.66), 1.0)
+	var w := 1.2
+	var h := 1.6
+	var c := Vector3(WATCH_WIN.x, WATCH_WIN.y + h / 2.0, FACADE_Z + 0.06)
+	var glass := Build.color_mat(Color(0.32, 0.45, 0.66), 0.12)
+	glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	glass.albedo_color.a = 0.16
+	_watch_glass = Build.box(geo, Vector3(w, h, 0.03), c, glass, false)
+	Build.box(geo, Vector3(w + 0.2, 0.12, 0.14), c + Vector3(0, h / 2.0 + 0.06, 0.02), frame, false)
+	Build.box(geo, Vector3(w + 0.3, 0.12, 0.25), c + Vector3(0, -h / 2.0 - 0.06, 0.06), frame, false)
+	Build.box(geo, Vector3(0.1, h, 0.1), c + Vector3(-w / 2.0, 0, 0.03), frame, false)
+	Build.box(geo, Vector3(0.1, h, 0.1), c + Vector3(w / 2.0, 0, 0.03), frame, false)
+	Build.box(geo, Vector3(0.06, h, 0.06), c + Vector3(0, 0, 0.04), frame, false)
+	Build.box(geo, Vector3(w, 0.06, 0.06), c + Vector3(0, 0.1, 0.04), frame, false)
+	# Quartinho escuro atrás do vidro (o piso é a laje do 2º andar).
+	var paper := Build.mat("wallpaper_damask", Color(0.4, 0.38, 0.46), 1.0)
+	var zb := FACADE_Z - 1.9
+	Build.box(geo, Vector3(1.8, 3.0, 0.1), Vector3(WATCH_WIN.x, FLOOR2 + 1.5, zb), paper, true)
+	Build.box(geo, Vector3(0.1, 3.0, 1.5), Vector3(WATCH_WIN.x - 0.85, FLOOR2 + 1.5, zb + 0.75), paper, true)
+	Build.box(geo, Vector3(0.1, 3.0, 1.5), Vector3(WATCH_WIN.x + 0.85, FLOOR2 + 1.5, zb + 0.75), paper, true)
+	_watch_light = Build.omni(geo, Vector3(WATCH_WIN.x, FLOOR2 + 2.0, FACADE_Z - 0.25), Color("b9c8ee"), 0.25, 2.4)
+
+
+## Restos da festa na frente da casa: faixa, bandeirinhas, copos, garrafas, balões.
+func _build_party() -> void:
+	var fz := FACADE_Z
+	# Faixa entre os pilares do alpendre, com uma ponta solta.
+	var cloth := Build.color_mat(Color("d9cdb0"), 0.0, 0.95)
+	var banner := Build.box(geo, Vector3(3.0, 0.44, 0.03), Vector3(0.05, 2.72, fz + 1.5), cloth, false)
+	banner.rotation_degrees.z = -3.5
+	var txt := "PARABÉNS, %s" % Game.name_b.to_upper()
+	var fs := clampi(46 - maxi(txt.length() - 13, 0) * 3, 20, 46)
+	var words := Build.text3d(geo, txt, Vector3(0.05, 2.71, fz + 1.53), 0.0, fs, Color("b3283f"), UiTheme.FONT_HAND, 0.006)
+	words.rotation_degrees.z = -3.5
+	var torn := Build.box(geo, Vector3(0.36, 0.8, 0.02), Vector3(1.62, 2.2, fz + 1.5), cloth, false)
+	torn.rotation_degrees.z = 12.0
+	# Bandeirinhas caídas na beira do alpendre.
+	var colors := [Color("b3283f"), Color("d9b44a"), Color("3f7fb3"), Color("5aa06a")]
+	for i in 11:
+		var x := -1.6 + i * 0.32
+		var y := 3.05 - sin(float(i) / 10.0 * PI) * 0.35
+		var flag := Build.box(geo, Vector3(0.16, 0.16, 0.01), Vector3(x, y, fz + 1.95), Build.color_mat(colors[i % 4], 0.0, 0.9), false)
+		flag.rotation_degrees.z = 45.0
+	# Copos e garrafas espalhados pelo caminho e pelos degraus.
+	var cup_mat := Build.color_mat(Color("a8262c"), 0.0, 0.5)
+	var bottle_mat := Build.color_mat(Color("2c5a3a"), 0.08, 0.2)
+	for c in [[-1.7, -1.3, false], [-1.45, -0.9, true], [-1.95, -0.6, false], [1.5, -2.6, true], [0.9, fz + 0.95, false], [-0.6, fz + 1.2, true], [2.1, 0.4, true]]:
+		var cup := Build.cylinder(geo, 0.055, 0.13, Vector3(c[0], 0.065, c[1]), cup_mat, false, 8)
+		if c[2]:
+			cup.rotation_degrees = Vector3(90, rng.randf_range(0, 180), 0)
+			cup.position.y = 0.055
+	for b in [[-2.1, -1.1, false], [1.9, -2.2, true], [-1.2, fz + 1.35, true], [1.4, fz + 1.1, false]]:
+		var root := Node3D.new()
+		root.position = Vector3(b[0], 0, b[1])
+		geo.add_child(root)
+		Build.cylinder(root, 0.045, 0.24, Vector3(0, 0.12, 0), bottle_mat, false, 8)
+		Build.cylinder(root, 0.018, 0.1, Vector3(0, 0.29, 0), bottle_mat, false, 6)
+		if b[2]:
+			root.rotation_degrees = Vector3(0, rng.randf_range(0, 180), 90)
+			root.position.y = 0.045
+	# Balão murcho no chão e outro, meio vazio, preso no pilar.
+	var balloon := Build.sphere(geo, 0.28, Vector3(-2.3, 0.04, -2.1), Build.color_mat(Color("7b3b8f"), 0.0, 0.4))
+	balloon.scale = Vector3(1.3, 0.2, 1.0)
+	Build.box(geo, Vector3(0.01, 0.01, 0.7), Vector3(-2.2, 0.01, -1.6), Build.color_mat(Color("d9d4c7")), false, 20.0)
+	var sad := Build.sphere(geo, 0.17, Vector3(-1.75, 1.35, fz + 1.55), Build.color_mat(Color("3f7fb3"), 0.0, 0.4))
+	sad.scale = Vector3(1.0, 0.8, 0.9)
+	Build.box(geo, Vector3(0.01, 0.55, 0.01), Vector3(-1.68, 1.72, fz + 1.5), Build.color_mat(Color("d9d4c7")), false)
+	# O que dá para examinar.
+	interact(Vector3(1.2, 0, fz + 2.6), "Ler a faixa", _read_banner, "any", 1.2, true, 3.2)
+	interact(Vector3(-1.75, 0, -1.0), "Examinar os copos", _examine_cups, "any", 1.1, true, 1.0)
+
+
+## Lembrança m5: um carrinho de brinquedo capotado atrás do arbusto, no canto escuro a oeste.
+func _build_memory() -> void:
+	var m := MEMORY_POS
+	var red := Build.color_mat(Color("8a1f24"), 0.0, 0.55)
+	var dark := Build.color_mat(Color("111214"), 0.0, 0.6)
+	var car := Node3D.new()
+	car.position = m + Vector3(0.35, 0, -0.35)
+	car.rotation_degrees.y = 28.0
+	geo.add_child(car)
+	Build.box(car, Vector3(0.22, 0.08, 0.16), Vector3(0, 0.04, 0), red, false)      # cabine, no chão
+	Build.box(car, Vector3(0.42, 0.1, 0.2), Vector3(0, 0.13, 0), red, false)        # carroceria, de ponta-cabeça
+	for wx in [-0.14, 0.14]:
+		for wz in [-0.11, 0.11]:
+			var wheel := Build.cylinder(car, 0.045, 0.03, Vector3(wx, 0.2, wz), dark, false, 8)
+			wheel.rotation_degrees.x = 90.0
+	var cup := Build.cylinder(geo, 0.055, 0.13, m + Vector3(-0.4, 0.055, -0.1), Build.color_mat(Color("a8262c"), 0.0, 0.5), false, 8)
+	cup.rotation_degrees = Vector3(90, 40, 0)
+	Build.billboard(geo, "bush", m + Vector3(0.2, 0, 0.85), 0.06, 1, 0, Color(0.6, 0.72, 0.78))
+	Build.billboard(geo, "fern", m + Vector3(-0.7, 0, 0.5), 0.05, 1, 0, Color(0.6, 0.72, 0.78))
+	memory(m, "m5", "A curva",
+		"Eu fechei os olhos só por um segundo.\n\nSó um.\n\nQuando abri, a ponte vinha na nossa direção e %s gritava o meu nome." % Game.name_b)
+
+
+func _light_of(n: Node) -> Light3D:
+	if n is Light3D:
+		return n
+	for c in n.get_children():
+		if c is Light3D:
+			return c
+	return null
+
+
+func _register_door_lights(side: String, lights: Array) -> void:
+	for l in lights:
+		if l:
+			dread_light(l, side)
+			_door_lights[side].append(l)
+
+
+## Cada erro apaga primeiro as luzes da porta que está sendo tentada.
+func _focus_dread(side: String) -> void:
+	dread_focus(side)
 
 
 func _build_saia() -> void:
@@ -391,7 +533,8 @@ func _begin() -> void:
 	await cam.look_at_point(Vector3(0, 3.5, -2.0), 1.6)
 	await say([
 		"b: Uma casa. No meio do nada.",
-		"a: Tem luz nas janelas... mas não tem ninguém lá dentro. Eu sinto.",
+		"a: Tem luz nas janelas... mas ninguém lá dentro. Eu sinto.",
+		"b: Eu conheço essa casa. Não sei de onde.",
 	])
 	cam.set_view(Vector3(0, 7.2, 8.6), 34.0, 1.4)
 	cam.target = party.active
@@ -434,6 +577,10 @@ func _saia() -> void:
 		"Cada número de 0 a 255 vira dois dígitos hexadecimais: divida por 16 (o resultado é o 1º dígito, o resto é o 2º). 255 = FF, 177 = B1.",
 		"Porta de %s (lilás): B19CD9. Porta de %s (ciano): 00FFFF." % [Game.name_a, Game.name_b],
 	])
+	# O hospital vaza: a mesma palavra, do outro lado.
+	bleed(["O paciente do leito %d fala dormindo. Repete sempre a mesma palavra." % Game.number_a, "Saia."])
+	await get_tree().create_timer(2.5, false).timeout
+	await _show_watcher()
 
 
 func _blink_forever(l: Label3D) -> void:
@@ -444,6 +591,84 @@ func _blink_forever(l: Label3D) -> void:
 	t.tween_interval(rng.randf_range(0.05, 0.4))
 	t.tween_property(l, "modulate:a", base.a * rng.randf_range(0.35, 0.8), 0.08)
 
+
+# --- Restos da festa -----------------------------------------------------------------
+
+func _read_banner(ch: Character) -> void:
+	if _banner_read:
+		await say([ch.who + ": \"Parabéns, %s\". A tinta escorreu com a chuva." % Game.name_b])
+		return
+	_banner_read = true
+	await say([
+		"a: \"Parabéns, %s\"." % Game.name_b,
+		"b: É o meu nome.",
+		"a: Teve uma festa aqui. Uma festa para você.",
+		"b: Eu não lembro de festa nenhuma.",
+		"a: ...Nem eu.",
+	])
+
+
+func _examine_cups(ch: Character) -> void:
+	if ch.who == "a":
+		await say([
+			"a: Copos de plástico. Garrafas. Ainda tem bebida no fundo.",
+			"a: O cheiro faz a minha cabeça doer.",
+		])
+	else:
+		await say([
+			"b: Copos, garrafas, um balão murcho. A festa acabou faz tempo.",
+			"b: Ou acabou de repente.",
+		])
+
+
+# --- O Esquecido na janela -----------------------------------------------------------
+
+func _show_watcher() -> void:
+	if _finishing or (_open_a and _open_b):
+		return
+	var s := spawn_stalker()
+	s.hunting = false
+	s.appear(WATCH_POS, 0.0)
+	_watching = true
+	create_tween().tween_property(_watch_light, "light_energy", 1.6, 0.5)
+	Game.lock_input()
+	Audio.sfx("dread_sting", -6.0)
+	await cam.look_at_point(Vector3(WATCH_WIN.x, 5.2, FACADE_Z), 1.4)
+	await get_tree().create_timer(1.2).timeout
+	cam.target = party.active
+	Game.unlock_input()
+	await say([
+		"b: %s. A janela de cima." % Game.name_a,
+		"a: Tem alguém lá. Parado. Olhando para nós.",
+		"b: A mão no rosto. De novo.",
+		"a: Não tira o olho dali.",
+	])
+
+
+func _process(_delta: float) -> void:
+	if not _watching or not Game.can_control() or stalker == null:
+		return
+	# Some quando alguém chega perto da janela (no chão ou na varanda).
+	for ch in [party.a, party.b]:
+		var d := Vector2(ch.global_position.x - WATCH_POS.x, ch.global_position.z - FACADE_Z).length()
+		if d < 4.3:
+			_hide_watcher(ch)
+			return
+
+
+func _hide_watcher(ch: Character) -> void:
+	_watching = false
+	Audio.sfx("light_out", -6.0)
+	var t := create_tween()
+	t.tween_property(_watch_light, "light_energy", 1.8, 0.05)
+	t.tween_property(_watch_light, "light_energy", 0.0, 0.12)
+	stalker.vanish(0.12)
+	await get_tree().create_timer(0.7, false).timeout
+	if ch == party.active:
+		await say([ch.who + ": Sumiu. Estava bem ali na janela."])
+
+
+# --- Portas ----------------------------------------------------------------------------
 
 func _climb_vines(ch: Character) -> void:
 	_vines_it.disable()
@@ -476,6 +701,7 @@ func _try_door(ch: Character, side: String) -> void:
 	lock.prefix = "#"
 	lock.max_len = 7
 	lock.placeholder = "RRGGBB"
+	_focus_dread(side)
 	var ok := await puzzle(lock)
 	if not ok:
 		return
@@ -501,12 +727,21 @@ func _try_door(ch: Character, side: String) -> void:
 
 func _ending() -> void:
 	Game.lock_input()
+	_watching = false
+	if stalker and stalker.visible:
+		stalker.vanish(0.0)
 	Audio.sfx("success", -4.0)
 	await say([
 		"a: A minha porta abriu. Tem uma escada subindo.",
 		"b: A minha também. As duas vão para o mesmo lugar... para cima.",
 		"a: O sótão.",
-		"?: ...não deviam ter entrado.",
+		"b: Eu subia lá quando era criança. Eu acho.",
+	])
+	Audio.sfx("whisper_saia", -8.0)
+	await say([
+		"?: ...saia.",
+		"b: De novo.",
+		"a: Não importa. A gente já entrou.",
 	])
 	party.a.walk_to(Vector3(DOOR_A_X, FLOOR2, FACADE_Z - 1.0), 2.0)
 	party.b.walk_to(Vector3(DOOR_B_X, FLOOR2, FACADE_Z - 1.0), 2.0)
@@ -565,3 +800,40 @@ func _debug_doc_ciano() -> void:
 
 func _debug_lock_a() -> void:
 	_try_door(party.a, "a")
+
+
+## O Esquecido na janela do 2º andar, vista do quintal.
+func _debug_watcher() -> void:
+	var s := spawn_stalker()
+	s.appear(WATCH_POS, 0.0)
+	_watch_light.light_energy = 1.6
+	party.a.teleport(Vector3(-1.6, 0.05, 2.0))
+	await get_tree().create_timer(2.0).timeout
+	cam.set_view(Vector3(0, 7.2, 8.6), 34.0, 0.01)
+	cam.target = party.a
+	cam.snap()
+
+
+func _debug_watcher_close() -> void:
+	var s := spawn_stalker()
+	s.appear(WATCH_POS, 0.0)
+	_watch_light.light_energy = 1.6
+	await get_tree().create_timer(2.0).timeout
+	var m := Node3D.new()
+	add_child(m)
+	m.global_position = Vector3(-3.3, 4.6, -4.0)
+	cam.set_view(Vector3(0, 2.0, 7.0), 34.0, 0.01)
+	cam.bounds = Rect2()
+	cam.target = m
+	cam.snap()
+
+
+func _debug_memory() -> void:
+	party.a.teleport(MEMORY_POS + Vector3(1.0, 0.05, 0.4))
+	cam.snap()
+
+
+func _debug_party() -> void:
+	party.a.teleport(Vector3(-1.2, 0.05, -2.2))
+	party.b.teleport(Vector3(1.0, 0.05, -2.6))
+	cam.snap()

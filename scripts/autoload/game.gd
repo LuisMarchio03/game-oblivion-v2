@@ -5,6 +5,7 @@ extends Node
 signal journal_changed
 signal objective_changed(text: String)
 signal settings_changed
+signal puzzle_failed
 
 const SAVE_PATH := "user://save.json"
 const SETTINGS_PATH := "user://settings.cfg"
@@ -18,7 +19,7 @@ const CHAPTERS := [
 	{"id": "ch06", "title": "O Sótão"},
 	{"id": "ch07", "title": "O Saguão"},
 	{"id": "ch08", "title": "Ascendência"},
-	{"id": "ch09", "title": "Ainda Há Esperança"},
+	{"id": "ch09", "title": "Quatro e Quinze"},
 ]
 
 var name_a := "Ana"
@@ -33,6 +34,12 @@ var objective := ""
 var chapter_hints: Array = []
 var hints_shown := 0
 var play_time := 0.0
+## Lembranças da noite do acidente achadas (ids), uma escondida em cada capítulo de 1 a 8.
+var memories: Array = []
+## Final escolhido no capítulo 9: "forget", "remember" ou "hope" (lembrou com as 8 lembranças).
+var ending := ""
+
+const MEMORY_TOTAL := 8
 
 var settings := {
 	"master": 0.8,
@@ -123,6 +130,25 @@ func next_hint() -> String:
 	return chapter_hints[hints_shown - 1]
 
 
+# --- Lembranças ------------------------------------------------------------------
+
+## Guarda uma lembrança. Retorna true se era nova.
+func add_memory(id: String) -> bool:
+	if memories.has(id):
+		return false
+	memories.append(id)
+	save_game()
+	return true
+
+
+func has_memory(id: String) -> bool:
+	return memories.has(id)
+
+
+func all_memories() -> bool:
+	return memories.size() >= MEMORY_TOTAL
+
+
 # --- Flags --------------------------------------------------------------------
 
 func set_flag(key: String, value: Variant = true) -> void:
@@ -150,6 +176,8 @@ func new_game(a: String, b: String) -> void:
 	notepad = {"a": "", "b": ""}
 	objective = ""
 	play_time = 0.0
+	memories = []
+	ending = ""
 
 
 func chapter_scene(index: int) -> String:
@@ -191,6 +219,7 @@ func save_game() -> void:
 		"journal": journal,
 		"notepad": notepad,
 		"play_time": play_time,
+		"memories": memories,
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
@@ -226,6 +255,8 @@ func load_game() -> bool:
 		np = {"a": np, "b": ""}
 	notepad = {"a": str(np.get("a", "")), "b": str(np.get("b", ""))}
 	play_time = float(data.get("play_time", 0.0))
+	memories = Array(data.get("memories", []))
+	ending = ""
 	return true
 
 

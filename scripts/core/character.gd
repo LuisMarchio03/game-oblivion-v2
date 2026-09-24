@@ -14,6 +14,7 @@ const ROW := {"down": 0, "left": 1, "right": 2, "up": 3, "climb": 4}
 var who := "a"
 var active := false
 var busy := false  # em cena scriptada (escalando, andando sozinho)
+var hidden := false  # dentro de um esconderijo: o Esquecido não enxerga
 var facing := "down"
 var sprite: Sprite3D
 var lamp: OmniLight3D
@@ -82,7 +83,9 @@ func _placeholder_sheet() -> Texture2D:
 
 func set_active(on: bool) -> void:
 	active = on
-	lamp.light_energy = 0.55 if on else 0.18
+	lamp.light_energy = 0.0 if hidden else (0.55 if on else 0.18)
+	if on and hidden:
+		Ui.show_prompt("Sair do esconderijo")
 	if not on:
 		velocity = Vector3.ZERO
 		_frame = 0
@@ -199,6 +202,10 @@ func _update_focus() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if active and hidden and Game.can_control() and event.is_action_pressed("interact"):
+		get_viewport().set_input_as_handled()
+		leave_hiding()
+		return
 	if not active or busy or not Game.can_control():
 		return
 	if event.is_action_pressed("interact") and _focus:
@@ -261,6 +268,32 @@ func climb(points: Array, duration := 3.0) -> void:
 	_frame = 0
 	_set_frame()
 	busy = false
+
+
+## Entra num esconderijo (armário, debaixo da cama): some da vista até sair.
+func hide_in(spot: Vector3) -> void:
+	if hidden:
+		return
+	hidden = true
+	busy = true
+	velocity = Vector3.ZERO
+	global_position = Vector3(spot.x, global_position.y, spot.z)
+	sprite.visible = false
+	lamp.light_energy = 0.0
+	Audio.sfx("door_open", -14.0, 1.5)
+	Audio.sfx("breath", -16.0)
+	Ui.show_prompt("Sair do esconderijo")
+
+
+func leave_hiding() -> void:
+	if not hidden:
+		return
+	hidden = false
+	busy = false
+	sprite.visible = true
+	lamp.light_energy = 0.55 if active else 0.18
+	Audio.sfx("door_open", -14.0, 1.3)
+	Ui.hide_prompt()
 
 
 func teleport(pos: Vector3) -> void:
