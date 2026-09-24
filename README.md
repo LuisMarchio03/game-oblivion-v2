@@ -61,7 +61,7 @@ O jogo vai embutido no executável (um arquivo só). `build/` fica fora do git.
 
 ### Enrique Candido
 
-Ideia original do jogo, parte da história e parte dos assets.
+Ideia original do jogo, historia, artes, desenvolvimento
 
 UI/UX Designer e desenvolvedor front-end, cofundador da LED Softwares e estudante de bacharelado
 em Sistemas de Informação. Mineiros, Goiás.
